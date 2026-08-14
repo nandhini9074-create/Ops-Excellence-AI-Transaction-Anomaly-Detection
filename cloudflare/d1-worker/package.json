@@ -1,0 +1,15 @@
+{
+  "name": "ops-excellence-d1-worker",
+  "version": "1.0.0",
+  "description": "Cloudflare Worker for D1 Historical Storage",
+  "main": "src/index.ts",
+  "scripts": {
+    "dev": "wrangler dev",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20240320.1",
+    "typescript": "^5.4.3",
+    "wrangler": "^3.38.0"
+  }
+}
