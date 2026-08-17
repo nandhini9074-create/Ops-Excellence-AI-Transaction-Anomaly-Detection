@@ -1,6 +1,7 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Union
 from datetime import datetime
+from uuid import UUID
 from app.schemas.anomaly import AnomalyResponse # Will create this in next phase if not created, or just use basic
 
 class IssueBase(BaseModel):
@@ -10,10 +11,10 @@ class IssueBase(BaseModel):
     resolution: Optional[str] = None
 
 class IssueCreate(BaseModel):
-    anomaly_id: str
-    merchant_id: str
+    anomaly_id: Union[UUID, str]
+    merchant_id: Union[UUID, str]
     merchant_name: str
-    outlet_id: str
+    outlet_id: Union[UUID, str]
     outlet_name: str
     anomaly_type: str
     anomaly_score: float
@@ -25,7 +26,7 @@ class IssueUpdate(IssueBase):
     pass
 
 class IssueResponse(IssueBase, IssueCreate):
-    id: str
+    id: Union[UUID, str]
     created_at: datetime
     resolved_at: Optional[datetime] = None
 

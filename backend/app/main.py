@@ -1,6 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from contextlib import asynccontextmanager
+import sys
+import os
+
+# Add the project root to sys.path so 'baseline' and 'ml' can be imported
+sys.path.append(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))))
+
 from app.config import settings
 from app.database.connection import init_db_pool, close_db_pool
 from app.scheduler import start_scheduler
@@ -38,11 +44,12 @@ app.add_middleware(
 async def health_check():
     return {"status": "ok", "project": settings.PROJECT_NAME}
 
-from app.api.v1 import transactions, issues, feedback
+from app.api.v1 import transactions, issues, feedback, analytics
 # from app.api.v1 import merchants, anomalies
 app.include_router(transactions.router, prefix=f"{settings.API_V1_STR}/transactions", tags=["transactions"])
 app.include_router(issues.router, prefix=f"{settings.API_V1_STR}/issues", tags=["issues"])
 app.include_router(feedback.router, prefix=f"{settings.API_V1_STR}/feedback", tags=["feedback"])
+app.include_router(analytics.router, prefix=f"{settings.API_V1_STR}/analytics", tags=["analytics"])
 # app.include_router(merchants.router, prefix=settings.API_V1_STR)
 # app.include_router(anomalies.router, prefix=settings.API_V1_STR)
 # app.include_router(feedback.router, prefix=settings.API_V1_STR)

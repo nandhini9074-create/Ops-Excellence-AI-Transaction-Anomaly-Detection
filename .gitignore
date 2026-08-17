@@ -1,0 +1,30 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Environments
+.env
+.venv
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.wrangler/
+dist/
+
+# Dataset files
+my_transactions.csv
+transactions.json
+
+# IDEs
+.vscode/
+.idea/
+.gemini/

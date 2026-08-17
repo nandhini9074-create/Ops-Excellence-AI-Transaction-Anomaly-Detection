@@ -3,9 +3,10 @@ import sys
 import os
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend"))
 
-from backend.app.database.connection import init_db_pool, close_db_pool
-from backend.app.scheduler import run_baseline_builder
+from app.database.connection import init_db_pool, close_db_pool
+from app.scheduler import run_baseline_builder
 
 async def main():
     print("Running Baseline Builder...")

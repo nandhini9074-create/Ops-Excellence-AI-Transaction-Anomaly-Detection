@@ -20,8 +20,8 @@ class IsolationForestDetector:
         if df_recent.empty or len(df_recent) < 5: # Need a minimum number of samples to find patterns
             return results
             
-        # Extract features for model
-        features = df_recent[['transaction_amount']].copy()
+        # Extract features for model (cast to float to avoid decimal/float TypeError)
+        features = df_recent[['transaction_amount']].copy().astype(float)
         
         # Add time features
         df_recent['datetime'] = pd.to_datetime(df_recent['transaction_timestamp'])

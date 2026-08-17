@@ -110,3 +110,25 @@ def generate_transactions(num_normal=1500, num_group=500, days_history=90):
     transactions.sort(key=lambda x: x["transaction_timestamp"])
     
     return transactions
+
+def load_dataset(file_path: str):
+    import pandas as pd
+    import json
+    import os
+    
+    # Try resolving relative path if not found directly
+    if not os.path.exists(file_path):
+        # Check if the file is in parent directories
+        alt_path = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), file_path)
+        if os.path.exists(alt_path):
+            file_path = alt_path
+            
+    if file_path.endswith('.json'):
+        return pd.read_json(file_path)
+    elif file_path.endswith('.csv'):
+        return pd.read_csv(file_path)
+    else:
+        try:
+            return pd.read_json(file_path)
+        except Exception:
+            return pd.read_csv(file_path)

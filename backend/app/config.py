@@ -1,11 +1,16 @@
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
+import os
+
+# Calculate the project root which is two levels up from this file's directory (backend/app/config.py)
+root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+env_path = os.path.join(root_dir, ".env")
 
 class Settings(BaseSettings):
     PROJECT_NAME: str = "Ops Excellence AI"
     API_V1_STR: str = "/api/v1"
     
-    DATABASE_URL: str = "postgresql+asyncpg://postgres:postgres@localhost:5432/ops_excellence"
+    DATABASE_URL: str = "postgresql+asyncpg://postgres:pass%40123@localhost:5432/ops_excellence"
     
     D1_WORKER_URL: str = "http://localhost:8787"
     D1_WORKER_API_KEY: str = "local_dev_key"
@@ -30,6 +35,6 @@ class Settings(BaseSettings):
     PROPHET_WEIGHT: float = 0.25
     CHANGE_POINT_WEIGHT: float = 0.20
 
-    model_config = SettingsConfigDict(env_file=".env", case_sensitive=True, extra="ignore")
+    model_config = SettingsConfigDict(env_file=env_path, case_sensitive=True, extra="ignore")
 
 settings = Settings()

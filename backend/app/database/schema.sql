@@ -122,3 +122,15 @@ CREATE TABLE IF NOT EXISTS processing_runs (
     anomalies_detected INTEGER DEFAULT 0,
     error_message TEXT
 );
+
+CREATE TABLE IF NOT EXISTS merchant_whitelists (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+    outlet_id UUID REFERENCES outlets(id) ON DELETE CASCADE,
+    false_positive_count INTEGER DEFAULT 0,
+    threshold_multiplier FLOAT DEFAULT 1.0,
+    is_whitelisted VARCHAR(10) DEFAULT 'false',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+

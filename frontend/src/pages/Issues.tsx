@@ -1,14 +1,56 @@
 import { useState, useEffect } from 'react';
-
-// Mock data
-const MOCK_ISSUES = [
-  { id: '1', merchant_name: 'India Bistro', outlet_name: 'Dubai WTC', anomaly_type: 'VOLUME_SPIKE', severity: 'HIGH', status: 'OPEN', detected_at: '2026-08-14T10:00:00Z' },
-  { id: '2', merchant_name: 'Coffee Planet', outlet_name: 'Etihad Plaza', anomaly_type: 'AMOUNT_DROP', severity: 'MEDIUM', status: 'INVESTIGATING', detected_at: '2026-08-14T09:15:00Z' },
-  { id: '3', merchant_name: 'fnp.ae', outlet_name: 'E-Commerce', anomaly_type: 'PATTERN_BREAK', severity: 'CRITICAL', status: 'OPEN', detected_at: '2026-08-14T08:30:00Z' },
-];
+import { getIssues, acknowledgeIssue, resolveIssue } from '../services/api';
+import { RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 export default function Issues() {
-  const [issues, setIssues] = useState(MOCK_ISSUES);
+  const [issues, setIssues] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeFilter, setActiveFilter] = useState('ALL');
+
+  const fetchIssues = async () => {
+    setLoading(true);
+    try {
+      const data = await getIssues();
+      setIssues(data);
+    } catch (error) {
+      console.error("Failed to load issues", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchIssues();
+  }, []);
+
+  const handleAcknowledge = async (id: string) => {
+    try {
+      await acknowledgeIssue(id);
+      fetchIssues();
+    } catch (error) {
+      console.error("Failed to acknowledge issue", error);
+    }
+  };
+
+  const handleResolve = async (id: string, isTrueAlert: boolean) => {
+    const status = isTrueAlert ? 'RESOLVED' : 'FALSE_POSITIVE';
+    const resolution = isTrueAlert ? 'Confirmed anomaly and escalated' : 'Marked as false positive after review';
+    try {
+      await resolveIssue(id, status, resolution);
+      fetchIssues();
+    } catch (error) {
+      console.error("Failed to resolve issue", error);
+    }
+  };
+
+  const handleUncertain = async (id: string) => {
+    try {
+      await resolveIssue(id, 'UNCERTAIN', 'Marked as UNCERTAIN for senior analyst review');
+      fetchIssues();
+    } catch (error) {
+      console.error("Failed to mark issue as uncertain", error);
+    }
+  };
 
   const getBadgeClass = (severity: string) => {
     switch(severity) {
@@ -20,37 +62,213 @@ export default function Issues() {
     }
   };
 
+  const getTabCount = (filterKey: string) => {
+    if (filterKey === 'ALL') return issues.length;
+    return issues.filter(i => i.status === filterKey).length;
+  };
+
+  const renderRowActions = (issue: any) => {
+    if (activeFilter === 'OPEN' && issue.status === 'OPEN') {
+      return (
+        <button 
+          className="btn" 
+          style={{ padding: '6px 12px', fontSize: '0.8rem' }}
+          onClick={() => handleAcknowledge(issue.id)}
+        >
+          Acknowledge
+        </button>
+      );
+    }
+
+    if (activeFilter === 'ACKNOWLEDGED' && issue.status === 'ACKNOWLEDGED') {
+      return (
+        <>
+          <button 
+            className="btn" 
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.8rem',
+              background: 'rgba(16, 185, 129, 0.1)', 
+              color: '#34d399', 
+              borderColor: 'rgba(16, 185, 129, 0.2)' 
+            }}
+            onClick={() => handleResolve(issue.id, true)}
+          >
+            True Alert
+          </button>
+          <button 
+            className="btn" 
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.8rem',
+              background: 'rgba(239, 68, 68, 0.1)', 
+              color: '#fca5a5', 
+              borderColor: 'rgba(239, 68, 68, 0.2)' 
+            }}
+            onClick={() => handleResolve(issue.id, false)}
+          >
+            False Positive
+          </button>
+          <button 
+            className="btn" 
+            style={{ 
+              padding: '6px 12px', 
+              fontSize: '0.8rem',
+              background: 'rgba(251, 191, 36, 0.1)', 
+              color: '#fbbf24', 
+              borderColor: 'rgba(251, 191, 36, 0.2)' 
+            }}
+            onClick={() => handleUncertain(issue.id)}
+          >
+            Uncertain
+          </button>
+        </>
+      );
+    }
+
+    if (issue.status === 'RESOLVED') {
+      return (
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <CheckCircle size={14} style={{ color: 'var(--success)' }} /> Confirmed Anomaly
+        </span>
+      );
+    }
+
+    if (issue.status === 'FALSE_POSITIVE') {
+      return (
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <XCircle size={14} style={{ color: 'var(--danger)' }} /> False Positive
+        </span>
+      );
+    }
+
+    if (issue.status === 'UNCERTAIN') {
+      return (
+        <span style={{ fontSize: '0.85rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <AlertTriangle size={14} style={{ color: '#fbbf24' }} /> Uncertain
+        </span>
+      );
+    }
+
+    return (
+      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+        {activeFilter === 'ALL' ? 'Overview Mode' : 'No Actions'}
+      </span>
+    );
+  };
+
+  const filteredIssues = issues.filter(issue => {
+    if (activeFilter === 'ALL') return true;
+    return issue.status === activeFilter;
+  });
+
+  if (loading && issues.length === 0) {
+    return <div style={{ padding: '40px', color: 'var(--text-muted)' }}>Loading issues...</div>;
+  }
+
   return (
     <div>
       <div className="page-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <h1 className="page-title">Issue Management</h1>
-        <button className="btn">Filter</button>
+        <div>
+          <h1 className="page-title">Issue Management</h1>
+          <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem', marginTop: '6px' }}>
+            Review, acknowledge, and resolve detected transaction anomalies.
+          </p>
+        </div>
+        <button className="btn" style={{ display: 'flex', alignItems: 'center', gap: '8px' }} onClick={fetchIssues}>
+          <RefreshCw size={16} /> Refresh
+        </button>
       </div>
 
-      <div className="card table-container">
+      {/* Filter Tabs */}
+      <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
+        {['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'FALSE_POSITIVE', 'UNCERTAIN'].map(filter => {
+          const count = getTabCount(filter);
+          return (
+            <button
+              key={filter}
+              onClick={() => setActiveFilter(filter)}
+              style={{
+                background: activeFilter === filter ? 'var(--primary-glow)' : 'transparent',
+                color: activeFilter === filter ? '#60a5fa' : 'var(--text-muted)',
+                border: activeFilter === filter ? '1px solid rgba(59, 130, 246, 0.2)' : '1px solid transparent',
+                padding: '8px 16px',
+                borderRadius: '8px',
+                cursor: 'pointer',
+                fontWeight: 600,
+                fontSize: '0.85rem',
+                transition: 'all 0.2s',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '8px'
+              }}
+            >
+              <span>{filter.replace('_', ' ')}</span>
+              <span style={{
+                background: activeFilter === filter ? 'rgba(96, 165, 250, 0.2)' : 'rgba(255, 255, 255, 0.05)',
+                padding: '2px 8px',
+                borderRadius: '12px',
+                fontSize: '0.75rem',
+                fontWeight: 700
+              }}>
+                {count}
+              </span>
+            </button>
+          );
+        })}
+      </div>
+
+      <div className="card table-container" style={{ padding: '0px', overflow: 'hidden' }}>
         <table>
           <thead>
             <tr>
-              <th>Merchant</th>
-              <th>Outlet</th>
+              <th>Merchant & Outlet</th>
               <th>Anomaly Type</th>
               <th>Severity</th>
               <th>Status</th>
-              <th>Detected</th>
-              <th>Actions</th>
+              <th>Detected At</th>
+              <th style={{ textAlign: 'right' }}>
+                {activeFilter === 'OPEN' || activeFilter === 'ACKNOWLEDGED' ? 'Actions' : 'Details / Mode'}
+              </th>
             </tr>
           </thead>
           <tbody>
-            {issues.map(issue => (
+            {filteredIssues.length === 0 ? (
+              <tr>
+                <td colSpan={6} style={{ textAlign: 'center', padding: '48px', color: 'var(--text-muted)' }}>
+                  No issues found matching this filter.
+                </td>
+              </tr>
+            ) : filteredIssues.map(issue => (
               <tr key={issue.id}>
-                <td>{issue.merchant_name}</td>
-                <td>{issue.outlet_name}</td>
-                <td>{issue.anomaly_type}</td>
-                <td><span className={getBadgeClass(issue.severity)}>{issue.severity}</span></td>
-                <td><strong>{issue.status}</strong></td>
-                <td>{new Date(issue.detected_at).toLocaleString()}</td>
                 <td>
-                  <button className="btn" style={{ padding: '4px 8px', fontSize: '0.8rem' }}>Review</button>
+                  <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{issue.merchant_name}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '2px' }}>{issue.outlet_name}</div>
+                </td>
+                <td style={{ verticalAlign: 'middle' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                    <span style={{ color: 'var(--text-muted)' }}>{issue.anomaly_type}</span>
+                  </div>
+                </td>
+                <td>
+                  <span className={getBadgeClass(issue.severity)}>{issue.severity}</span>
+                </td>
+                <td>
+                  <span style={{
+                    color: issue.status === 'OPEN' ? '#f87171' : issue.status === 'ACKNOWLEDGED' ? '#fbbf24' : '#34d399',
+                    fontWeight: 700,
+                    fontSize: '0.85rem'
+                  }}>
+                    {issue.status}
+                  </span>
+                </td>
+                <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
+                  {new Date(issue.detected_at).toLocaleString()}
+                </td>
+                <td>
+                  <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+                    {renderRowActions(issue)}
+                  </div>
                 </td>
               </tr>
             ))}

@@ -38,6 +38,13 @@ class TransactionRepository:
         values = []
         for tx in transactions:
             tx_id = str(uuid.uuid4())
+            
+            # Parse txn_date to datetime.date if it is passed as a string
+            txn_date_val = tx.txn_date
+            if isinstance(txn_date_val, str):
+                from datetime import datetime as dt_class
+                txn_date_val = dt_class.strptime(txn_date_val, "%Y-%m-%d").date()
+                
             values.append((
                 tx_id,
                 tx.transaction_id,
@@ -50,8 +57,8 @@ class TransactionRepository:
                 tx.profile_id,
                 tx.transaction_timestamp.replace(tzinfo=timezone.utc) if tx.transaction_timestamp else None,
                 tx.posting_timestamp.replace(tzinfo=timezone.utc) if tx.posting_timestamp else None,
-                tx.txn_date,
-                tx.txn_hour,
+                txn_date_val,
+                int(tx.txn_hour) if tx.txn_hour is not None else None,
                 datetime.now(timezone.utc),
                 datetime.now(timezone.utc),
                 tx.silver_updated_at.replace(tzinfo=timezone.utc) if tx.silver_updated_at else None,

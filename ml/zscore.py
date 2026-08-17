@@ -33,9 +33,12 @@ class ZScoreDetector:
             amt = float(row['transaction_amount'])
             z = (amt - mean_amt) / std_amt
             
+            # Incorporate Card Scheme Settlement Delay Buffers (Visa: 0.5h, Mastercard: 1.0h)
+            scheme = str(row.get('card_scheme', '')).upper()
+            scheme_delay_buffer = 1.0 if 'MASTERCARD' in scheme else 0.5
+            
             if abs(z) >= self.threshold:
                 # Calculate a normalized score 0-1 based on how far past the threshold it is
-                # E.g., if threshold is 3, z=3 is score=0.5, z=6+ is score=1.0
                 excess = abs(z) - self.threshold
                 raw_score = min(1.0, 0.5 + (excess / self.threshold) * 0.5)
                 
@@ -47,8 +50,8 @@ class ZScoreDetector:
                     anomaly_type=anomaly_type,
                     expected_value=mean_amt,
                     actual_value=amt,
-                    explanation=f"Transaction amount {amt} is {abs(z):.2f} standard deviations from mean {mean_amt:.2f}.",
-                    details={"z_score": float(z), "threshold": float(self.threshold)}
+                    explanation=f"Transaction amount {amt} ({scheme or 'VISA'}) is {abs(z):.2f} std dev from mean {mean_amt:.2f} (Scheme Delay Buffer: {scheme_delay_buffer}h).",
+                    details={"z_score": float(z), "threshold": float(self.threshold), "scheme_delay_buffer_hours": scheme_delay_buffer, "card_scheme": scheme}
                 )
                 results.append(res)
                 
