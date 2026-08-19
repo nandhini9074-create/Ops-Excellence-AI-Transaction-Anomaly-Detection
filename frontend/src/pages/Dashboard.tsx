@@ -72,8 +72,8 @@ export default function Dashboard() {
         </div>
       </div>
 
-      {/* Target Operational Metrics (Architecture SLA) */}
-      <div style={{ marginBottom: '24px' }}>
+      {/* Target Operational Metrics (Architecture SLA) - Commented Out */}
+      {/* <div style={{ marginBottom: '24px' }}>
         <h3 style={{ marginBottom: '14px', fontSize: '1.05rem', fontWeight: 600, color: 'var(--text-muted)' }}>
           Target Operational SLA & ML Metrics
         </h3>
@@ -110,7 +110,7 @@ export default function Dashboard() {
             <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: '4px' }}>Delay buffer aware</div>
           </div>
         </div>
-      </div>
+      </div> */}
 
       <div className="card" style={{ height: '440px', paddingBottom: '40px' }}>
         <h3 style={{ marginBottom: '24px', fontSize: '1.1rem', fontFamily: 'var(--font-title)', fontWeight: 600 }}>

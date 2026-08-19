@@ -23,7 +23,6 @@ function SidebarNav() {
       <NavLink to="/feedback" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}><CheckSquare size={18}/> Feedback</NavLink>
       
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
-        <NavLink to="/settings" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}><Settings size={18}/> Settings</NavLink>
         <div style={{
           display: 'flex',
           alignItems: 'center',
@@ -65,7 +64,6 @@ function App() {
             <Route path="/issues" element={<Issues />} />
             <Route path="/baselines" element={<Baselines />} />
             <Route path="/feedback" element={<Feedback />} />
-            <Route path="/settings" element={<div><h1 className="page-title" style={{marginBottom: '16px'}}>Settings</h1><p style={{color: 'var(--text-muted)'}}>Manage SMTP hosts, Slack webhooks, and detector threshold weights.</p></div>} />
           </Routes>
         </main>
       </div>

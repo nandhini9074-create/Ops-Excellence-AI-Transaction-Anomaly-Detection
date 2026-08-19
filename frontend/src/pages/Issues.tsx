@@ -43,15 +43,6 @@ export default function Issues() {
     }
   };
 
-  const handleUncertain = async (id: string) => {
-    try {
-      await resolveIssue(id, 'UNCERTAIN', 'Marked as UNCERTAIN for senior analyst review');
-      fetchIssues();
-    } catch (error) {
-      console.error("Failed to mark issue as uncertain", error);
-    }
-  };
-
   const getBadgeClass = (severity: string) => {
     switch(severity) {
       case 'LOW': return 'badge badge-low';
@@ -109,19 +100,6 @@ export default function Issues() {
           >
             False Positive
           </button>
-          <button 
-            className="btn" 
-            style={{ 
-              padding: '6px 12px', 
-              fontSize: '0.8rem',
-              background: 'rgba(251, 191, 36, 0.1)', 
-              color: '#fbbf24', 
-              borderColor: 'rgba(251, 191, 36, 0.2)' 
-            }}
-            onClick={() => handleUncertain(issue.id)}
-          >
-            Uncertain
-          </button>
         </>
       );
     }
@@ -138,14 +116,6 @@ export default function Issues() {
       return (
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <XCircle size={14} style={{ color: 'var(--danger)' }} /> False Positive
-        </span>
-      );
-    }
-
-    if (issue.status === 'UNCERTAIN') {
-      return (
-        <span style={{ fontSize: '0.85rem', color: '#fbbf24', display: 'flex', alignItems: 'center', gap: '4px' }}>
-          <AlertTriangle size={14} style={{ color: '#fbbf24' }} /> Uncertain
         </span>
       );
     }
@@ -182,7 +152,7 @@ export default function Issues() {
 
       {/* Filter Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
-        {['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'FALSE_POSITIVE', 'UNCERTAIN'].map(filter => {
+        {['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'FALSE_POSITIVE'].map(filter => {
           const count = getTabCount(filter);
           return (
             <button

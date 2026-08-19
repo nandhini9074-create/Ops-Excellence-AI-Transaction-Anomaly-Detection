@@ -59,9 +59,11 @@ class ChangePointDetector:
                 before_cp = signal[:latest_cp_idx]
                 after_cp = signal[latest_cp_idx:]
                 
+                # [BASELINE COMPARISON]: Calculates pre-shift baseline volume vs post-shift volume
                 mean_before = np.mean(before_cp)
                 mean_after = np.mean(after_cp)
                 
+                # [ANOMALY DECISION]: Checks if post-shift volume deviates by >1.5x (increase) or <0.5x (decrease)
                 if mean_after > mean_before * 1.5:
                     anomaly_type = "REGIME_CHANGE_INCREASE"
                     score = 0.8

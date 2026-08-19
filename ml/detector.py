@@ -28,6 +28,7 @@ class AnomalyDetectionEngine:
         if recent_transactions_df.empty:
             return None
             
+        logger.info(f"Running AnomalyDetectionEngine on {len(recent_transactions_df)} recent transaction records...")
         all_results = []
         
         # 1. Z-Score
@@ -60,9 +61,12 @@ class AnomalyDetectionEngine:
             
         # If no anomalies detected
         if not all_results:
+            logger.info("No anomaly signals triggered across the 4 ML detectors (Normal Execution).")
             return None
             
         # Fuse scores
         final_anomaly = fuse_scores(all_results)
+        if final_anomaly:
+            logger.info(f"Anomaly detected! Fused Score: {final_anomaly.get('anomaly_score', 0):.2f}, Severity: {final_anomaly.get('severity')}, Type: {final_anomaly.get('anomaly_type')}")
         
         return final_anomaly

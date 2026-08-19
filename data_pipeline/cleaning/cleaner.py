@@ -1,6 +1,8 @@
 from typing import List, Dict, Any
 from datetime import datetime
 import pandas as pd
+from app.schemas.transaction import TransactionCreate
+
 
 class TransactionCleaner:
     def clean_transaction(self, tx: Any) -> Any:
@@ -41,7 +43,6 @@ class TransactionCleaner:
                 c_tx['card_scheme'] = 'MASTERCARD'
                 
         if is_pydantic:
-            from app.schemas.transaction import TransactionCreate
             return TransactionCreate(**c_tx)
         return c_tx
 

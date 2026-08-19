@@ -28,7 +28,7 @@ class IsolationForestDetector:
         features['hour'] = df_recent['datetime'].dt.hour
         features['dayofweek'] = df_recent['datetime'].dt.dayofweek
         
-        # We can also add historical baseline reference features
+        # [BASELINE COMPARISON]: Calculates transaction amount deviation relative to baseline mean
         mean_amt = self.baseline.get("amount", {}).get("mean_amount", 0)
         features['amount_deviation'] = features['transaction_amount'] - mean_amt
         
@@ -47,6 +47,7 @@ class IsolationForestDetector:
         scores = clf.decision_function(features)
         
         for idx, (pred, score) in enumerate(zip(preds, scores)):
+            # [ANOMALY DECISION]: Checks if Isolation Forest predicted an abnormal isolation path (pred == -1)
             if pred == -1:
                 # Normalize score to 0-1. Score is typically between -0.5 and 0.5.
                 # If score is < 0, it's an anomaly. The more negative, the more severe.

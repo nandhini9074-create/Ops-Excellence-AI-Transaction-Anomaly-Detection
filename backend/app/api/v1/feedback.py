@@ -7,18 +7,19 @@ from app.schemas.feedback import FeedbackCreate, FeedbackResponse
 from app.services.feedback_service import FeedbackService
 from app.repositories.feedback_repo import FeedbackRepository
 
+import logging
+
+logger = logging.getLogger("ops_excellence.api.feedback")
 router = APIRouter()
 
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
 async def submit_feedback(fb_in: FeedbackCreate, db: asyncpg.Connection = Depends(get_db)):
+    logger.info(f"Received human feedback for issue {fb_in.issue_id}: classification={fb_in.feedback_type}")
     service = FeedbackService(db)
     fb = await service.process_feedback(fb_in)
+    logger.info(f"Feedback successfully logged for issue {fb_in.issue_id}.")
     return fb
 
-@router.get("/issue/{issue_id}", response_model=List[FeedbackResponse])
-async def get_feedback_for_issue(issue_id: str, db: asyncpg.Connection = Depends(get_db)):
-    repo = FeedbackRepository(db)
-    return await repo.get_by_issue_id(issue_id)
 
 @router.get("/")
 async def get_all_feedback(db: asyncpg.Connection = Depends(get_db)):

@@ -49,12 +49,30 @@ class BaselineBuilder:
                 logger.warning(f"No historical data for outlet {outlet['id']}. Skipping baseline.")
                 continue
                 
+            # Check if merchant is in whitelist
+            wl = await self.conn.fetchrow(
+                "SELECT threshold_multiplier, is_whitelisted FROM merchant_whitelists WHERE outlet_id = $1 OR merchant_id = $2",
+                outlet['id'], outlet['merchant_id']
+            )
+            
+            # Default values if merchant is not whitelisted
+            multiplier = 1.0
+            is_whitelisted = False
+            
+            # If whitelist record exists, update values
+            if wl:
+                if wl['threshold_multiplier']:
+                    multiplier = float(wl['threshold_multiplier'])
+                if str(wl['is_whitelisted']).lower() == 'true':
+                    is_whitelisted = True
+
             # Extract features
             vol_feat = extract_volume_features(df)
             amt_feat = extract_amount_features(df)
             card_feat = extract_card_features(df)
             time_feat = extract_time_and_seasonality_features(df)
-            thresh_feat = calculate_dynamic_thresholds(vol_feat, amt_feat)
+            thresh_feat = calculate_dynamic_thresholds(vol_feat, amt_feat, threshold_multiplier=multiplier)
+            thresh_feat['is_whitelisted'] = is_whitelisted
             
             profile_data = {
                 "volume": vol_feat,

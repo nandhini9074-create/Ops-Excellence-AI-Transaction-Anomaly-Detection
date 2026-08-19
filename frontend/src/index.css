@@ -45,12 +45,14 @@ body {
 
 .app-container {
   display: flex;
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
-/* Compact Professional Sidebar */
+/* Compact Fixed Professional Sidebar */
 .sidebar {
   width: 220px;
+  height: 100vh;
   background-color: #ffffff;
   border-right: 1px solid var(--border);
   padding: 20px 14px;
@@ -58,6 +60,10 @@ body {
   flex-direction: column;
   gap: 6px;
   flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  left: 0;
+  z-index: 10;
 }
 
 .sidebar-title {
@@ -129,11 +135,13 @@ body {
   font-weight: 700;
 }
 
-/* Main Content Area - Compact & Professional */
+/* Main Content Area - Separate Independent Scrollbar Column */
 .main-content {
   flex: 1;
+  height: 100vh;
   padding: 24px 32px;
   overflow-y: auto;
+  scroll-behavior: smooth;
 }
 
 .page-header {

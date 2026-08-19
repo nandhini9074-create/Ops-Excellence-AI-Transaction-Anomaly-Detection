@@ -12,7 +12,15 @@ from app.database.connection import init_db_pool, close_db_pool
 from app.scheduler import start_scheduler
 import logging
 
-logger = logging.getLogger(__name__)
+# Configure centralized structured logging
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)-8s | %(name)s | %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S"
+)
+
+logger = logging.getLogger("ops_excellence.main")
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):

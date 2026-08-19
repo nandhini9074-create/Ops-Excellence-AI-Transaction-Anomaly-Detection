@@ -1,6 +1,15 @@
+import sys
+import os
 from typing import List, Dict
+
+# Ensure backend directory is in sys.path for IDE linter & standalone execution
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
+if backend_dir not in sys.path:
+    sys.path.insert(0, backend_dir)
+
 from app.config import settings
 from ml.zscore import DetectorResult
+
 
 def calculate_severity(score: float) -> str:
     if score >= 0.85:

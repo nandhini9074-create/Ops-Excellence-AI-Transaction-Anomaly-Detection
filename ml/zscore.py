@@ -31,12 +31,15 @@ class ZScoreDetector:
             
         for _, row in df_recent.iterrows():
             amt = float(row['transaction_amount'])
+            
+            # [BASELINE COMPARISON]: Compares live transaction amount against Baseline mean & stddev
             z = (amt - mean_amt) / std_amt
             
             # Incorporate Card Scheme Settlement Delay Buffers (Visa: 0.5h, Mastercard: 1.0h)
             scheme = str(row.get('card_scheme', '')).upper()
             scheme_delay_buffer = 1.0 if 'MASTERCARD' in scheme else 0.5
             
+            # [ANOMALY DECISION]: Checks if Z-score deviation exceeds baseline threshold
             if abs(z) >= self.threshold:
                 # Calculate a normalized score 0-1 based on how far past the threshold it is
                 excess = abs(z) - self.threshold

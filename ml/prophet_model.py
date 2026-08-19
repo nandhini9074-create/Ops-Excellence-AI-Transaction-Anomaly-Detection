@@ -48,6 +48,7 @@ class ProphetDetector:
             df_recent['datetime'] = pd.to_datetime(df_recent['transaction_timestamp'])
             current_date = df_recent['datetime'].dt.date.iloc[0]
             
+            # [BASELINE COMPARISON]: Fits Prophet time-series model on historical baseline & predicts expected range
             future = pd.DataFrame({'ds': [pd.to_datetime(current_date)]})
             forecast = model.predict(future)
             
@@ -61,6 +62,7 @@ class ProphetDetector:
             if hours_covered == 0: hours_covered = 1
             projected_daily_vol = actual_vol * (24 / hours_covered)
             
+            # [ANOMALY DECISION]: Checks if projected volume falls outside expected baseline forecast bounds [yhat_lower, yhat_upper]
             if projected_daily_vol > yhat_upper or projected_daily_vol < yhat_lower:
                 # Anomaly
                 anomaly_type = "VOLUME_SPIKE" if projected_daily_vol > yhat_upper else "VOLUME_DROP"

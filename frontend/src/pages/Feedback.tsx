@@ -37,13 +37,11 @@ export default function Feedback() {
 
   const trueAlertsCount = logs.filter(l => l.feedback_type === 'TRUE_ALERT' || l.feedback_type === 'RESOLVED').length;
   const falsePositivesCount = logs.filter(l => l.feedback_type === 'FALSE_POSITIVE').length;
-  const uncertainCount = logs.filter(l => l.feedback_type === 'UNCERTAIN').length;
 
   const getTabCount = (type: string) => {
     if (type === 'ALL') return logs.length;
     if (type === 'TRUE_ALERT') return trueAlertsCount;
     if (type === 'FALSE_POSITIVE') return falsePositivesCount;
-    if (type === 'UNCERTAIN') return uncertainCount;
     return 0;
   };
 
@@ -107,7 +105,7 @@ export default function Feedback() {
       {/* Filter Tabs & Search Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', flexWrap: 'wrap', gap: '16px' }}>
         <div style={{ display: 'flex', gap: '8px' }}>
-          {['ALL', 'TRUE_ALERT', 'FALSE_POSITIVE', 'UNCERTAIN'].map(filter => {
+          {['ALL', 'TRUE_ALERT', 'FALSE_POSITIVE'].map(filter => {
             const count = getTabCount(filter);
             return (
               <button
@@ -189,20 +187,18 @@ export default function Feedback() {
                 </td>
                 <td>
                   <span style={{
-                    color: log.feedback_type === 'TRUE_ALERT' || log.feedback_type === 'RESOLVED' ? '#34d399' : log.feedback_type === 'UNCERTAIN' ? '#fbbf24' : '#f87171',
+                    color: log.feedback_type === 'TRUE_ALERT' || log.feedback_type === 'RESOLVED' ? '#34d399' : '#f87171',
                     fontWeight: 700,
                     fontSize: '0.85rem',
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: '6px',
-                    background: log.feedback_type === 'TRUE_ALERT' || log.feedback_type === 'RESOLVED' ? 'rgba(52, 211, 153, 0.1)' : log.feedback_type === 'UNCERTAIN' ? 'rgba(251, 191, 36, 0.1)' : 'rgba(248, 113, 113, 0.1)',
+                    background: log.feedback_type === 'TRUE_ALERT' || log.feedback_type === 'RESOLVED' ? 'rgba(52, 211, 153, 0.1)' : 'rgba(248, 113, 113, 0.1)',
                     padding: '4px 10px',
                     borderRadius: '12px'
                   }}>
                     {log.feedback_type === 'TRUE_ALERT' || log.feedback_type === 'RESOLVED' ? (
                       <><CheckCircle size={14} /> TRUE ALERT</>
-                    ) : log.feedback_type === 'UNCERTAIN' ? (
-                      <><AlertOctagon size={14} style={{ color: '#fbbf24' }} /> UNCERTAIN</>
                     ) : (
                       <><XCircle size={14} /> FALSE POSITIVE</>
                     )}

@@ -67,7 +67,7 @@ export default function Baselines() {
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div className="stat-title">Avg History Window</div>
-              <div className="stat-value" style={{ color: '#34d399' }}>30 Days</div>
+              <div className="stat-value" style={{ color: '#34d399' }}>90 Days</div>
             </div>
             <div style={{ background: 'rgba(16, 185, 129, 0.1)', color: '#10b981', borderRadius: '12px', padding: '10px' }}>
               <Clock size={24} />
@@ -75,7 +75,7 @@ export default function Baselines() {
           </div>
         </div>
 
-        <div className="card">
+        {/* <div className="card">
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
             <div>
               <div className="stat-title">Evaluated Data Points</div>
@@ -85,7 +85,7 @@ export default function Baselines() {
               <Database size={24} />
             </div>
           </div>
-        </div>
+        </div> */}
       </div>
 
       {/* Search Input */}
@@ -122,8 +122,11 @@ export default function Baselines() {
                 </td>
               </tr>
             ) : filteredBaselines.map(b => {
-              const meanAmount = b.profile_data?.mean_amount ? `\$${Number(b.profile_data.mean_amount).toFixed(2)}` : 'N/A';
-              const peakHour = b.profile_data?.peak_transaction_hour !== undefined ? `${b.profile_data.peak_transaction_hour}:00` : 'N/A';
+              const meanVal = b.profile_data?.amount?.mean_amount ?? b.profile_data?.mean_amount;
+              const peakVal = b.profile_data?.time?.peak_transaction_hour ?? b.profile_data?.peak_transaction_hour;
+              
+              const meanAmount = meanVal !== undefined && meanVal !== null ? `\$${Number(meanVal).toFixed(2)}` : 'N/A';
+              const peakHour = peakVal !== undefined && peakVal !== null ? `${peakVal}:00` : 'N/A';
 
               return (
                 <tr key={b.id}>
