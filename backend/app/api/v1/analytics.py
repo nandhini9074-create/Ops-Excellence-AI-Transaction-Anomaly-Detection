@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends
 import asyncpg
 from typing import Dict, Any
-
+import json
 from app.database.connection import get_db
 
 router = APIRouter()
@@ -49,7 +49,7 @@ async def get_dashboard_stats(db: asyncpg.Connection = Depends(get_db)):
         "trend": trend_data
     }
 
-import json
+
 
 @router.get("/baselines")
 async def get_baselines(db: asyncpg.Connection = Depends(get_db)):

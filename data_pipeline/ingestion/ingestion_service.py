@@ -1,7 +1,6 @@
 from typing import List, Dict
 import logging
 import asyncpg
-
 from app.schemas.transaction import TransactionCreate
 from data_pipeline.validation.business_rules import validate_transaction_exclusive_rule, validate_group_id
 from data_pipeline.cleaning.cleaner import TransactionCleaner

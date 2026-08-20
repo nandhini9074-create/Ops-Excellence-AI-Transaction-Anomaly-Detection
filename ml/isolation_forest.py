@@ -24,9 +24,11 @@ class IsolationForestDetector:
         features = df_recent[['transaction_amount']].copy().astype(float)
         
         # Add time features
-        df_recent['datetime'] = pd.to_datetime(df_recent['transaction_timestamp'])
-        features['hour'] = df_recent['datetime'].dt.hour
-        features['dayofweek'] = df_recent['datetime'].dt.dayofweek
+        dt_series = pd.to_datetime(df_recent['transaction_timestamp'])
+        df_recent['datetime'] = dt_series
+        dt_idx = pd.DatetimeIndex(dt_series)
+        features['hour'] = dt_idx.hour
+        features['dayofweek'] = dt_idx.dayofweek
         
         # [BASELINE COMPARISON]: Calculates transaction amount deviation relative to baseline mean
         mean_amt = self.baseline.get("amount", {}).get("mean_amount", 0)

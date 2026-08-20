@@ -1,5 +1,5 @@
 import pandas as pd
-from typing import List, Dict
+from typing import List, Dict, Optional
 import logging
 
 from ml.zscore import ZScoreDetector
@@ -20,7 +20,7 @@ class AnomalyDetectionEngine:
         self.prophet = ProphetDetector(baseline_profile, historical_df)
         self.change_point = ChangePointDetector(baseline_profile, historical_df)
         
-    def analyze(self, recent_transactions_df: pd.DataFrame) -> Dict:
+    def analyze(self, recent_transactions_df: pd.DataFrame) -> Optional[Dict]:
         """
         Runs all detectors and fuses their results.
         Returns a dictionary representing the anomaly (if any).

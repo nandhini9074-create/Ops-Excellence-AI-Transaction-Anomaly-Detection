@@ -59,25 +59,22 @@ export default function Issues() {
   };
 
   const renderRowActions = (issue: any) => {
-    if (activeFilter === 'OPEN' && issue.status === 'OPEN') {
+    if (issue.status === 'OPEN' || issue.status === 'ACKNOWLEDGED') {
       return (
-        <button 
-          className="btn" 
-          style={{ padding: '6px 12px', fontSize: '0.8rem' }}
-          onClick={() => handleAcknowledge(issue.id)}
-        >
-          Acknowledge
-        </button>
-      );
-    }
-
-    if (activeFilter === 'ACKNOWLEDGED' && issue.status === 'ACKNOWLEDGED') {
-      return (
-        <>
+        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+          {issue.status === 'OPEN' && (
+            <button 
+              className="btn" 
+              style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+              onClick={() => handleAcknowledge(issue.id)}
+            >
+              Acknowledge
+            </button>
+          )}
           <button 
             className="btn" 
             style={{ 
-              padding: '6px 12px', 
+              padding: '6px 10px', 
               fontSize: '0.8rem',
               background: 'rgba(16, 185, 129, 0.1)', 
               color: '#34d399', 
@@ -90,7 +87,7 @@ export default function Issues() {
           <button 
             className="btn" 
             style={{ 
-              padding: '6px 12px', 
+              padding: '6px 10px', 
               fontSize: '0.8rem',
               background: 'rgba(239, 68, 68, 0.1)', 
               color: '#fca5a5', 
@@ -100,7 +97,7 @@ export default function Issues() {
           >
             False Positive
           </button>
-        </>
+        </div>
       );
     }
 
@@ -120,11 +117,7 @@ export default function Issues() {
       );
     }
 
-    return (
-      <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-        {activeFilter === 'ALL' ? 'Overview Mode' : 'No Actions'}
-      </span>
-    );
+    return null;
   };
 
   const filteredIssues = issues.filter(issue => {
@@ -197,9 +190,7 @@ export default function Issues() {
               <th>Severity</th>
               <th>Status</th>
               <th>Detected At</th>
-              <th style={{ textAlign: 'right' }}>
-                {activeFilter === 'OPEN' || activeFilter === 'ACKNOWLEDGED' ? 'Actions' : 'Details / Mode'}
-              </th>
+              <th style={{ textAlign: 'right' }}>Actions / Status</th>
             </tr>
           </thead>
           <tbody>

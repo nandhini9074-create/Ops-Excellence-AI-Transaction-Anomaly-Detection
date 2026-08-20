@@ -1,6 +1,6 @@
 import sys
 import os
-from typing import List, Dict
+from typing import List, Dict, Optional
 
 # Ensure backend directory is in sys.path for IDE linter & standalone execution
 backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "backend"))
@@ -21,7 +21,7 @@ def calculate_severity(score: float) -> str:
     else:
         return "LOW"
 
-def fuse_scores(detector_results: List[DetectorResult]) -> Dict:
+def fuse_scores(detector_results: List[DetectorResult]) -> Optional[Dict]:
     """
     Fuses the scores from multiple detectors into a single anomaly score and confidence.
     """
@@ -40,8 +40,8 @@ def fuse_scores(detector_results: List[DetectorResult]) -> Dict:
     details = {}
     
     # Track the highest scoring detector to use its explanation and values
-    primary_detector = None
-    max_raw_score = -1
+    primary_detector = detector_results[0]
+    max_raw_score = primary_detector.raw_score
     
     for res in detector_results:
         w = weights.get(res.detector_name, 0.25)
@@ -61,9 +61,9 @@ def fuse_scores(detector_results: List[DetectorResult]) -> Dict:
     # If multiple detectors triggered, confidence is higher
     confidence = min(1.0, 0.4 + (len(detector_results) * 0.15))
     
-    # If it's a multi-signal anomaly
+    # If 2 or more detectors triggered, label as a multi-signal anomaly
     anomaly_type = primary_detector.anomaly_type
-    if len(detector_results) >= 3:
+    if len(detector_results) >= 2:
         anomaly_type = "MULTI_SIGNAL_ANOMALY"
         
     return {
