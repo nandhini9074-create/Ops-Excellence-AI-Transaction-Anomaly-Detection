@@ -6,6 +6,7 @@ export default function Issues() {
   const [issues, setIssues] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('ALL');
+  const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
 
   const fetchIssues = async () => {
     setLoading(true);
@@ -34,9 +35,15 @@ export default function Issues() {
 
   const handleResolve = async (id: string, isTrueAlert: boolean) => {
     const status = isTrueAlert ? 'RESOLVED' : 'FALSE_POSITIVE';
+    const customFeedback = feedbackInputs[id]?.trim();
     const resolution = isTrueAlert ? 'Confirmed anomaly and escalated' : 'Marked as false positive after review';
     try {
-      await resolveIssue(id, status, resolution);
+      await resolveIssue(id, status, resolution, customFeedback);
+      setFeedbackInputs(prev => {
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
       fetchIssues();
     } catch (error) {
       console.error("Failed to resolve issue", error);
@@ -59,6 +66,14 @@ export default function Issues() {
   };
 
   const renderRowActions = (issue: any) => {
+    if (activeFilter === 'ALL') {
+      return (
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', fontWeight: 600 }}>
+          {issue.status.replace('_', ' ')}
+        </span>
+      );
+    }
+
     if (issue.status === 'OPEN' || issue.status === 'ACKNOWLEDGED') {
       return (
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
@@ -71,32 +86,6 @@ export default function Issues() {
               Acknowledge
             </button>
           )}
-          <button 
-            className="btn" 
-            style={{ 
-              padding: '6px 10px', 
-              fontSize: '0.8rem',
-              background: 'rgba(16, 185, 129, 0.1)', 
-              color: '#34d399', 
-              borderColor: 'rgba(16, 185, 129, 0.2)' 
-            }}
-            onClick={() => handleResolve(issue.id, true)}
-          >
-            True Alert
-          </button>
-          <button 
-            className="btn" 
-            style={{ 
-              padding: '6px 10px', 
-              fontSize: '0.8rem',
-              background: 'rgba(239, 68, 68, 0.1)', 
-              color: '#fca5a5', 
-              borderColor: 'rgba(239, 68, 68, 0.2)' 
-            }}
-            onClick={() => handleResolve(issue.id, false)}
-          >
-            False Positive
-          </button>
         </div>
       );
     }
@@ -187,6 +176,7 @@ export default function Issues() {
             <tr>
               <th>Merchant & Outlet</th>
               <th>Anomaly Type</th>
+              <th>Scheme</th>
               <th>Severity</th>
               <th>Status</th>
               <th>Detected At</th>
@@ -210,6 +200,18 @@ export default function Issues() {
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{issue.anomaly_type}</span>
                   </div>
+                  {issue.remarks && (
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={issue.remarks}>
+                      {issue.remarks}
+                    </div>
+                  )}
+                </td>
+                <td>
+                  {issue.scheme ? (
+                    <span style={{ fontSize: '0.85rem', fontWeight: 600 }}>{issue.scheme}</span>
+                  ) : (
+                    <span style={{ color: 'var(--text-muted)' }}>-</span>
+                  )}
                 </td>
                 <td>
                   <span className={getBadgeClass(issue.severity)}>{issue.severity}</span>

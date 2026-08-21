@@ -2,8 +2,10 @@ import asyncio
 import sys
 import os
 import argparse
-import asyncpg
 import logging
+from sqlalchemy.ext.asyncio import create_async_engine, async_sessionmaker, AsyncSession
+from sqlalchemy import text
+from sqlalchemy.exc import ProgrammingError
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.append(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend"))
@@ -13,18 +15,19 @@ from backend.app.config import settings
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-async def apply_schema(conn: asyncpg.Connection):
+async def apply_schema(db: AsyncSession):
     schema_path = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "backend", "app", "database", "schema.sql")
     if os.path.exists(schema_path):
         with open(schema_path, "r") as f:
             sql = f.read()
         logger.info("Applying schema.sql...")
-        await conn.execute(sql)
+        await db.execute(text(sql))
+        await db.commit()
         logger.info("Schema applied successfully.")
     else:
         logger.error(f"Schema file not found at {schema_path}")
 
-async def seed_merchants_and_outlets(conn: asyncpg.Connection):
+async def seed_merchants_and_outlets(db: AsyncSession):
     logger.info("Seeding merchants and outlets...")
     import uuid
     
@@ -33,9 +36,9 @@ async def seed_merchants_and_outlets(conn: asyncpg.Connection):
     m2_id = str(uuid.uuid4())
     m3_id = str(uuid.uuid4())
     
-    await conn.execute("INSERT INTO merchants (id, name, mcc) VALUES ($1, $2, $3)", m1_id, "India Bistro", "5812")
-    await conn.execute("INSERT INTO merchants (id, name, mcc) VALUES ($1, $2, $3)", m2_id, "Coffee Planet", "5814")
-    await conn.execute("INSERT INTO merchants (id, name, mcc) VALUES ($1, $2, $3)", m3_id, "fnp.ae", "5992")
+    await db.execute(text("INSERT INTO merchants (id, name, mcc) VALUES (:id, :name, :mcc)"), {"id": m1_id, "name": "India Bistro", "mcc": "5812"})
+    await db.execute(text("INSERT INTO merchants (id, name, mcc) VALUES (:id, :name, :mcc)"), {"id": m2_id, "name": "Coffee Planet", "mcc": "5814"})
+    await db.execute(text("INSERT INTO merchants (id, name, mcc) VALUES (:id, :name, :mcc)"), {"id": m3_id, "name": "fnp.ae", "mcc": "5992"})
 
     # 2. Create Outlets
     o1_id = str(uuid.uuid4())
@@ -43,14 +46,15 @@ async def seed_merchants_and_outlets(conn: asyncpg.Connection):
     o3_id = str(uuid.uuid4())
     o4_id = str(uuid.uuid4())
     
-    await conn.execute("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES ($1, $2, $3, $4)", o1_id, m1_id, "Dubai WTC", "Dubai")
-    await conn.execute("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES ($1, $2, $3, $4)", o2_id, m1_id, "Sharjah Center", "Sharjah")
-    await conn.execute("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES ($1, $2, $3, $4)", o3_id, m2_id, "Etihad Plaza", "Abu Dhabi")
-    await conn.execute("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES ($1, $2, $3, $4)", o4_id, m3_id, "E-Commerce", "Online")
+    await db.execute(text("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES (:id, :mid, :name, :city)"), {"id": o1_id, "mid": m1_id, "name": "Dubai WTC", "city": "Dubai"})
+    await db.execute(text("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES (:id, :mid, :name, :city)"), {"id": o2_id, "mid": m1_id, "name": "Sharjah Center", "city": "Sharjah"})
+    await db.execute(text("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES (:id, :mid, :name, :city)"), {"id": o3_id, "mid": m2_id, "name": "Etihad Plaza", "city": "Abu Dhabi"})
+    await db.execute(text("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES (:id, :mid, :name, :city)"), {"id": o4_id, "mid": m3_id, "name": "E-Commerce", "city": "Online"})
 
+    await db.commit()
     logger.info("Merchants and outlets seeded.")
 
-async def seed_transactions(conn: asyncpg.Connection, file_path: str = None):
+async def seed_transactions(db: AsyncSession, file_path: str = None):
     logger.info("Loading generated transactions...")
     import os
     import httpx
@@ -82,9 +86,9 @@ async def seed_transactions(conn: asyncpg.Connection, file_path: str = None):
     for _, m_row in unique_merchants.iterrows():
         m_id = str(m_row['merchant_id'])
         m_name = m_row['merchant_name']
-        await conn.execute(
-            "INSERT INTO merchants (id, name, mcc) VALUES ($1, $2, '0000') ON CONFLICT (id) DO NOTHING",
-            m_id, m_name
+        await db.execute(
+            text("INSERT INTO merchants (id, name, mcc) VALUES (:id, :name, '0000') ON CONFLICT (id) DO NOTHING"),
+            {"id": m_id, "name": m_name}
         )
         
     unique_outlets = df[['outlet_id', 'outlet_name', 'merchant_id']].dropna().drop_duplicates()
@@ -92,19 +96,21 @@ async def seed_transactions(conn: asyncpg.Connection, file_path: str = None):
         o_id = str(o_row['outlet_id'])
         o_name = o_row['outlet_name']
         m_id = str(o_row['merchant_id'])
-        await conn.execute(
-            "INSERT INTO outlets (id, merchant_id, name, location_city) VALUES ($1, $2, $3, 'Unknown') ON CONFLICT (id) DO NOTHING",
-            o_id, m_id, o_name
+        await db.execute(
+            text("INSERT INTO outlets (id, merchant_id, name, location_city) VALUES (:id, :mid, :name, 'Unknown') ON CONFLICT (id) DO NOTHING"),
+            {"id": o_id, "mid": m_id, "name": o_name}
         )
         
     unique_profiles = df[['profile_id', 'outlet_id']].dropna().drop_duplicates()
     for _, p_row in unique_profiles.iterrows():
         p_id = str(p_row['profile_id'])
         o_id = str(p_row['outlet_id'])
-        await conn.execute(
-            "INSERT INTO profiles (id, outlet_id, risk_score, segment) VALUES ($1, $2, 0.0, 'STANDARD') ON CONFLICT (id) DO NOTHING",
-            p_id, o_id
+        await db.execute(
+            text("INSERT INTO profiles (id, outlet_id, risk_score, segment) VALUES (:id, :oid, 0.0, 'STANDARD') ON CONFLICT (id) DO NOTHING"),
+            {"id": p_id, "oid": o_id}
         )
+    
+    await db.commit()
     
     # Calculate cutoff for past 1 week (using UTC timezone for compatibility)
     cutoff_date = datetime.now(timezone.utc) - timedelta(days=7)
@@ -165,7 +171,7 @@ async def seed_transactions(conn: asyncpg.Connection, file_path: str = None):
     # 2. Ingest recent transactions into PostgreSQL
     logger.info(f"Ingesting {len(recent_txs)} recent (past 1 week) transactions to PostgreSQL...")
     if recent_txs:
-        service = IngestionService(conn)
+        service = IngestionService(db)
         res = await service.process_batch(recent_txs)
         logger.info(f"PostgreSQL Ingestion result: {res}")
         
@@ -212,37 +218,45 @@ async def main():
     parser.add_argument("--file", type=str, default=None, help="Custom JSON/CSV dataset path to seed transactions from")
     args = parser.parse_args()
 
-    dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-    
-    try:
-        conn = await asyncpg.connect(dsn=dsn)
-    except asyncpg.exceptions.InvalidCatalogNameError:
-        import urllib.parse
-        parsed = urllib.parse.urlparse(dsn)
-        postgres_dsn = parsed._replace(path="/postgres").geturl()
+    dsn = settings.DATABASE_URL
+    if not dsn.startswith("postgresql+asyncpg://"):
+        dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
         
-        logger.info("Database 'ops_excellence' does not exist. Connecting to 'postgres' database to create it...")
-        temp_conn = await asyncpg.connect(dsn=postgres_dsn)
-        await temp_conn.execute("CREATE DATABASE ops_excellence")
-        await temp_conn.close()
-        logger.info("Database 'ops_excellence' created successfully.")
-        
-        conn = await asyncpg.connect(dsn=dsn)
+    engine = create_async_engine(dsn)
     
+    # We must try connecting to see if the DB exists
     try:
+        async with engine.connect() as conn:
+            pass
+    except Exception as e:
+        if "does not exist" in str(e):
+            import urllib.parse
+            parsed = urllib.parse.urlparse(dsn)
+            postgres_dsn = parsed._replace(path="/postgres").geturl()
+            
+            logger.info("Database 'ops_excellence' does not exist. Connecting to 'postgres' database to create it...")
+            temp_engine = create_async_engine(postgres_dsn, isolation_level="AUTOCOMMIT")
+            async with temp_engine.connect() as conn:
+                await conn.execute(text("CREATE DATABASE ops_excellence"))
+            await temp_engine.dispose()
+            logger.info("Database 'ops_excellence' created successfully.")
+    
+    SessionLocal = async_sessionmaker(engine, expire_on_commit=False)
+    
+    async with SessionLocal() as db:
         if args.schema:
-            await apply_schema(conn)
+            await apply_schema(db)
         
         if args.merchants:
-            await seed_merchants_and_outlets(conn)
+            await seed_merchants_and_outlets(db)
             
         if args.transactions:
-            await seed_transactions(conn, args.file)
+            await seed_transactions(db, args.file)
             
         if not any([args.schema, args.merchants, args.transactions]):
             logger.info("No flags provided. Use --schema, --merchants, or --transactions.")
-    finally:
-        await conn.close()
+            
+    await engine.dispose()
 
 if __name__ == "__main__":
     asyncio.run(main())

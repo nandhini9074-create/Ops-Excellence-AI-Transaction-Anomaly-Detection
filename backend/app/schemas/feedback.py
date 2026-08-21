@@ -7,6 +7,7 @@ class FeedbackCreate(BaseModel):
     feedback_type: str # TRUE_ALERT, FALSE_POSITIVE, UNCERTAIN
     root_cause: Optional[str] = None
     comments: Optional[str] = None
+    user_typing: Optional[str] = None
     submitted_by: Optional[str] = None
 
 class FeedbackResponse(FeedbackCreate):

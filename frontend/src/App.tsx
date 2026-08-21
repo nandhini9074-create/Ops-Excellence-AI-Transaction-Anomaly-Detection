@@ -1,9 +1,10 @@
 import { BrowserRouter as Router, Routes, Route, NavLink } from 'react-router-dom';
-import { Activity, AlertTriangle, CheckSquare, LayoutDashboard, Settings, User } from 'lucide-react';
+import { Activity, AlertTriangle, CheckSquare, LayoutDashboard, Settings, User, Database } from 'lucide-react';
 import Dashboard from './pages/Dashboard';
 import Issues from './pages/Issues';
 import Baselines from './pages/Baselines';
 import Feedback from './pages/Feedback';
+import AddTransactions from './pages/AddTransactions';
 
 // Inner component to access router context for active navigation styling
 function SidebarNav() {
@@ -21,6 +22,7 @@ function SidebarNav() {
       <NavLink to="/issues" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}><AlertTriangle size={18}/> Issues</NavLink>
       <NavLink to="/baselines" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}><Activity size={18}/> Baselines</NavLink>
       <NavLink to="/feedback" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}><CheckSquare size={18}/> Feedback</NavLink>
+      <NavLink to="/add-transactions" className={({ isActive }) => isActive ? "nav-link active" : "nav-link"}><Database size={18}/> Add Transactions</NavLink>
       
       <div style={{ marginTop: 'auto', display: 'flex', flexDirection: 'column', gap: '12px' }}>
         <div style={{
@@ -64,6 +66,7 @@ function App() {
             <Route path="/issues" element={<Issues />} />
             <Route path="/baselines" element={<Baselines />} />
             <Route path="/feedback" element={<Feedback />} />
+            <Route path="/add-transactions" element={<AddTransactions />} />
           </Routes>
         </main>
       </div>

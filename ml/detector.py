@@ -20,13 +20,13 @@ class AnomalyDetectionEngine:
         self.prophet = ProphetDetector(baseline_profile, historical_df)
         self.change_point = ChangePointDetector(baseline_profile, historical_df)
         
-    def analyze(self, recent_transactions_df: pd.DataFrame) -> Optional[Dict]:
+    def analyze(self, recent_transactions_df: pd.DataFrame) -> List[Dict]:
         """
-        Runs all detectors and fuses their results.
-        Returns a dictionary representing the anomaly (if any).
+        Runs all detectors and fuses their results by family.
+        Returns a list of dictionaries representing the anomalies (if any).
         """
         if recent_transactions_df.empty:
-            return None
+            return []
             
         logger.info(f"Running AnomalyDetectionEngine on {len(recent_transactions_df)} recent transaction records...")
         all_results = []
@@ -62,11 +62,12 @@ class AnomalyDetectionEngine:
         # If no anomalies detected
         if not all_results:
             logger.info("No anomaly signals triggered across the 4 ML detectors (Normal Execution).")
-            return None
+            return []
             
-        # Fuse scores
-        final_anomaly = fuse_scores(all_results)
-        if final_anomaly:
-            logger.info(f"Anomaly detected! Fused Score: {final_anomaly.get('anomaly_score', 0):.2f}, Severity: {final_anomaly.get('severity')}, Type: {final_anomaly.get('anomaly_type')}")
+        # Fuse scores (now returns a list)
+        final_anomalies = fuse_scores(all_results)
         
-        return final_anomaly
+        for anomaly in final_anomalies:
+            logger.info(f"Anomaly detected! Fused Score: {anomaly.get('anomaly_score', 0):.2f}, Severity: {anomaly.get('severity')}, Type: {anomaly.get('anomaly_type')}")
+        
+        return final_anomalies

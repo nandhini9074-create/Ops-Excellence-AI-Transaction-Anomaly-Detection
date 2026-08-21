@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends
-import asyncpg
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from typing import Dict, Any
 import json
 from app.database.connection import get_db
@@ -7,18 +8,18 @@ from app.database.connection import get_db
 router = APIRouter()
 
 @router.get("/dashboard", response_model=Dict[str, Any])
-async def get_dashboard_stats(db: asyncpg.Connection = Depends(get_db)):
+async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     # 1. Total Active Issues
-    total_issues = await db.fetchval("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED')")
+    total_issues = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED')"))).scalar()
     
     # 2. High/Critical Severity Active Issues
-    high_severity = await db.fetchval("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED') AND severity IN ('HIGH', 'CRITICAL')")
+    high_severity = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED') AND severity IN ('HIGH', 'CRITICAL')"))).scalar()
     
     # 3. False Positives (all time)
-    false_positives = await db.fetchval("SELECT COUNT(*) FROM issues WHERE status = 'FALSE_POSITIVE'")
+    false_positives = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status = 'FALSE_POSITIVE'"))).scalar()
     
     # 4. Real trend data from DB for the last 7 days
-    query = """
+    query = text("""
         WITH anchor AS (
             SELECT COALESCE(MAX(date_trunc('day', detected_at)), CURRENT_DATE) AS end_date FROM issues
         )
@@ -36,8 +37,9 @@ async def get_dashboard_stats(db: asyncpg.Connection = Depends(get_db)):
         LEFT JOIN issues i ON date_trunc('day', i.detected_at) = d.day
         GROUP BY d.day
         ORDER BY d.day ASC;
-    """
-    rows = await db.fetch(query)
+    """)
+    result = await db.execute(query)
+    rows = result.mappings().all()
     trend_data = [dict(r) for r in rows]
 
     return {
@@ -50,10 +52,9 @@ async def get_dashboard_stats(db: asyncpg.Connection = Depends(get_db)):
     }
 
 
-
 @router.get("/baselines")
-async def get_baselines(db: asyncpg.Connection = Depends(get_db)):
-    query = """
+async def get_baselines(db: AsyncSession = Depends(get_db)):
+    query = text("""
         SELECT 
             b.id,
             b.outlet_id,
@@ -68,9 +69,10 @@ async def get_baselines(db: asyncpg.Connection = Depends(get_db)):
         JOIN outlets o ON b.outlet_id = o.id
         JOIN merchants m ON o.merchant_id = m.id
         ORDER BY b.created_at DESC;
-    """
-    rows = await db.fetch(query)
-    result = []
+    """)
+    result = await db.execute(query)
+    rows = result.mappings().all()
+    result_list = []
     for r in rows:
         d = dict(r)
         d['id'] = str(d['id'])
@@ -82,7 +84,5 @@ async def get_baselines(db: asyncpg.Connection = Depends(get_db)):
                 pass
         if d.get('created_at'):
             d['created_at'] = d['created_at'].isoformat()
-        result.append(d)
-    return result
-
-
+        result_list.append(d)
+    return result_list

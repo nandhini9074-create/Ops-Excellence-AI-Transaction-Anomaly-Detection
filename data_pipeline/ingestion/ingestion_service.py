@@ -1,6 +1,6 @@
 from typing import List, Dict
 import logging
-import asyncpg
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.transaction import TransactionCreate
 from data_pipeline.validation.business_rules import validate_transaction_exclusive_rule, validate_group_id
 from data_pipeline.cleaning.cleaner import TransactionCleaner
@@ -9,10 +9,10 @@ from app.repositories.transaction_repo import TransactionRepository
 logger = logging.getLogger(__name__)
 
 class IngestionService:
-    def __init__(self, conn: asyncpg.Connection):
-        self.conn = conn
+    def __init__(self, db: AsyncSession):
+        self.db = db
         self.cleaner = TransactionCleaner()
-        self.repo = TransactionRepository(conn)
+        self.repo = TransactionRepository(db)
 
     def validate_transaction(self, tx: TransactionCreate) -> bool:
         tx_dict = tx.model_dump()

@@ -87,6 +87,8 @@ CREATE TABLE IF NOT EXISTS issues (
     assigned_to VARCHAR(100),
     root_cause TEXT,
     resolution TEXT,
+    scheme VARCHAR(50),
+    remarks TEXT,
     detected_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     resolved_at TIMESTAMP WITH TIME ZONE
@@ -130,6 +132,7 @@ CREATE TABLE IF NOT EXISTS merchant_whitelists (
     false_positive_count INTEGER DEFAULT 0,
     threshold_multiplier FLOAT DEFAULT 1.0,
     is_whitelisted VARCHAR(10) DEFAULT 'false',
+    dormancy_suppressed_until TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

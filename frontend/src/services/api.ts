@@ -24,10 +24,11 @@ export const acknowledgeIssue = async (issueId: string) => {
   return response.data;
 };
 
-export const resolveIssue = async (issueId: string, status: string, resolution?: string) => {
+export const resolveIssue = async (issueId: string, status: string, resolution?: string, user_typing?: string) => {
   const response = await apiClient.post(`/issues/${issueId}/resolve`, {
     status,
     resolution,
+    user_typing,
   });
   return response.data;
 };
@@ -39,6 +40,11 @@ export const getBaselines = async () => {
 
 export const getFeedbackLogs = async () => {
   const response = await apiClient.get('/feedback/');
+  return response.data;
+};
+
+export const ingestTransactions = async (transactions: any[]) => {
+  const response = await apiClient.post('/transactions/bulk', transactions);
   return response.data;
 };
 

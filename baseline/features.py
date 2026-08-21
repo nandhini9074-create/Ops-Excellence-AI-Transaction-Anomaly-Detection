@@ -6,7 +6,8 @@ def extract_volume_features(df: pd.DataFrame) -> dict:
         return {}
     
     # Calculate daily volumes
-    df['date'] = pd.to_datetime(df['transaction_timestamp']).dt.date
+    dates = pd.to_datetime(df['transaction_timestamp'])
+    df['date'] = dates.dt.date if hasattr(dates, 'dt') else dates.apply(lambda x: x.date())
     daily_volumes = df.groupby('date').size()
     
     return {

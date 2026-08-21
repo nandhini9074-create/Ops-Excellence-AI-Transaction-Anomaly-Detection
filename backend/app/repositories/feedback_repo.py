@@ -1,33 +1,40 @@
 from typing import List, Optional
-import asyncpg
 import uuid
 from datetime import datetime, timezone
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import select
+from sqlalchemy.orm import class_mapper
 
 from app.schemas.feedback import FeedbackCreate
+from app.database.models import Feedback
+
+def row2dict(row):
+    return {c.name: getattr(row, c.name) for c in class_mapper(row.__class__).columns}
 
 class FeedbackRepository:
-    def __init__(self, conn: asyncpg.Connection):
-        self.conn = conn
+    def __init__(self, db: AsyncSession):
+        self.db = db
 
     async def get_by_issue_id(self, issue_id: str) -> List[dict]:
-        query = "SELECT * FROM feedback WHERE issue_id = $1 ORDER BY created_at DESC"
-        records = await self.conn.fetch(query, issue_id)
-        return [dict(r) for r in records]
+        stmt = select(Feedback).where(Feedback.issue_id == issue_id).order_by(Feedback.created_at.desc())
+        result = await self.db.execute(stmt)
+        records = result.scalars().all()
+        return [row2dict(r) for r in records]
 
     async def create(self, feedback_data: FeedbackCreate) -> dict:
         new_id = str(uuid.uuid4())
-        query = """
-            INSERT INTO feedback (id, issue_id, feedback_type, root_cause, comments, submitted_by, created_at)
-            VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
-        """
-        record = await self.conn.fetchrow(
-            query,
-            new_id,
-            feedback_data.issue_id,
-            feedback_data.feedback_type,
-            feedback_data.root_cause,
-            feedback_data.comments,
-            feedback_data.submitted_by,
-            datetime.now(timezone.utc)
+        
+        feedback = Feedback(
+            id=new_id,
+            issue_id=feedback_data.issue_id,
+            feedback_type=feedback_data.feedback_type,
+            root_cause=feedback_data.root_cause,
+            comments=feedback_data.comments,
+            submitted_by=feedback_data.submitted_by,
+            created_at=datetime.now(timezone.utc)
         )
-        return dict(record)
+        
+        self.db.add(feedback)
+        await self.db.commit()
+        await self.db.refresh(feedback)
+        return row2dict(feedback)

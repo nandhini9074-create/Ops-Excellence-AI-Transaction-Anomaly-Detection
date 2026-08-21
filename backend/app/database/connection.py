@@ -1,46 +1,44 @@
-import asyncpg
 from typing import AsyncGenerator
 import logging
+from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession, async_sessionmaker
 from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# Global pool instance
-_pool: asyncpg.Pool = None
+# Replace protocol to ensure asyncpg is used by SQLAlchemy
+dsn = settings.DATABASE_URL
+if dsn.startswith("postgresql://"):
+    dsn = dsn.replace("postgresql://", "postgresql+asyncpg://", 1)
+
+engine = create_async_engine(
+    dsn,
+    pool_size=10,
+    max_overflow=20,
+    pool_pre_ping=True,
+    echo=False
+)
+
+async_session_maker = async_sessionmaker(
+    engine, class_=AsyncSession, expire_on_commit=False
+)
 
 async def init_db_pool():
-    global _pool
-    logger.info("Initializing asyncpg database pool...")
-    
-    # We replace postgresql+asyncpg:// with postgres:// or postgresql://
-    # asyncpg understands postgresql:// 
-    dsn = settings.DATABASE_URL.replace("postgresql+asyncpg://", "postgresql://")
-    
-    try:
-        _pool = await asyncpg.create_pool(
-            dsn=dsn,
-            min_size=2,
-            max_size=10,
-            command_timeout=60,
-        )
-        logger.info("Database pool created successfully.")
-    except Exception as e:
-        logger.error(f"Failed to create database pool: {e}")
-        raise
+    logger.info("SQLAlchemy async engine initialized.")
 
 async def close_db_pool():
-    global _pool
-    if _pool:
-        logger.info("Closing asyncpg database pool...")
-        await _pool.close()
-        logger.info("Database pool closed.")
+    logger.info("Closing SQLAlchemy async engine...")
+    await engine.dispose()
+    logger.info("Database engine closed.")
 
-async def get_db() -> AsyncGenerator[asyncpg.Connection, None]:
+async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
-    FastAPI dependency to get a connection from the pool.
+    FastAPI dependency to get a SQLAlchemy AsyncSession.
     """
-    if not _pool:
-        raise RuntimeError("Database pool has not been initialized.")
-        
-    async with _pool.acquire() as connection:
-        yield connection
+    async with async_session_maker() as session:
+        yield session
+
+# Provide dummy _pool to not break imports completely before full refactor
+class DummyPool:
+    def acquire(self):
+        raise NotImplementedError("Raw asyncpg pool is deprecated. Use async_session_maker().")
+_pool = DummyPool()

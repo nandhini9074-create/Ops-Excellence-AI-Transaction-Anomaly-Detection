@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, status
-import asyncpg
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy import text
 from typing import List
 
 from app.database.connection import get_db
@@ -13,7 +14,7 @@ logger = logging.getLogger("ops_excellence.api.feedback")
 router = APIRouter()
 
 @router.post("/", response_model=FeedbackResponse, status_code=status.HTTP_201_CREATED)
-async def submit_feedback(fb_in: FeedbackCreate, db: asyncpg.Connection = Depends(get_db)):
+async def submit_feedback(fb_in: FeedbackCreate, db: AsyncSession = Depends(get_db)):
     logger.info(f"Received human feedback for issue {fb_in.issue_id}: classification={fb_in.feedback_type}")
     service = FeedbackService(db)
     fb = await service.process_feedback(fb_in)
@@ -22,8 +23,8 @@ async def submit_feedback(fb_in: FeedbackCreate, db: asyncpg.Connection = Depend
 
 
 @router.get("/")
-async def get_all_feedback(db: asyncpg.Connection = Depends(get_db)):
-    query = """
+async def get_all_feedback(db: AsyncSession = Depends(get_db)):
+    query = text("""
         SELECT 
             f.id,
             f.issue_id,
@@ -38,15 +39,15 @@ async def get_all_feedback(db: asyncpg.Connection = Depends(get_db)):
         FROM feedback f
         LEFT JOIN issues i ON f.issue_id = i.id
         ORDER BY f.created_at DESC;
-    """
-    rows = await db.fetch(query)
+    """)
+    result = await db.execute(query)
+    rows = result.mappings().all()
     res = []
-    for r in rows:
-        d = dict(r)
+    for d in rows:
+        d = dict(d)
         d['id'] = str(d['id'])
         d['issue_id'] = str(d['issue_id'])
         if d.get('created_at'):
             d['created_at'] = d['created_at'].isoformat()
         res.append(d)
     return res
-

@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-import asyncpg
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List, Optional
 
 from app.database.connection import get_db
@@ -15,13 +15,13 @@ async def list_issues(
     status: Optional[str] = None,
     skip: int = 0,
     limit: int = 100,
-    db: asyncpg.Connection = Depends(get_db)
+    db: AsyncSession = Depends(get_db)
 ):
     repo = IssueRepository(db)
     return await repo.get_all(status=status, skip=skip, limit=limit)
 
 @router.post("/{id}/acknowledge", response_model=IssueResponse)
-async def acknowledge_issue(id: str, db: asyncpg.Connection = Depends(get_db)):
+async def acknowledge_issue(id: str, db: AsyncSession = Depends(get_db)):
     repo = IssueRepository(db)
     issue = await repo.update(id, IssueUpdate(status="ACKNOWLEDGED"))
     if not issue:
@@ -29,9 +29,9 @@ async def acknowledge_issue(id: str, db: asyncpg.Connection = Depends(get_db)):
     return issue
 
 @router.post("/{id}/resolve", response_model=IssueResponse)
-async def resolve_issue(id: str, payload: IssueStatusUpdate, db: asyncpg.Connection = Depends(get_db)):
+async def resolve_issue(id: str, payload: IssueStatusUpdate, db: AsyncSession = Depends(get_db)):
     repo = IssueRepository(db)
-    issue = await repo.update(id, IssueUpdate(status=payload.status, resolution=payload.resolution))
+    issue = await repo.update(id, IssueUpdate(status=payload.status, resolution=payload.resolution, user_typing=payload.user_typing))
     if not issue:
         raise HTTPException(status_code=404, detail="Issue not found")
 
@@ -43,6 +43,7 @@ async def resolve_issue(id: str, payload: IssueStatusUpdate, db: asyncpg.Connect
         feedback_type=feedback_type,
         root_cause=payload.resolution,
         comments=payload.resolution or f"Marked as {payload.status} by operator",
+        user_typing=payload.user_typing,
         submitted_by="operator"
     ))
     

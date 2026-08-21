@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-import asyncpg
+from sqlalchemy.ext.asyncio import AsyncSession
 from typing import List
 
 from app.database.connection import get_db
@@ -12,7 +12,7 @@ logger = logging.getLogger("ops_excellence.api.transactions")
 router = APIRouter()
 
 @router.post("/bulk", status_code=status.HTTP_201_CREATED)
-async def ingest_transactions_bulk(transactions: List[TransactionCreate], db: asyncpg.Connection = Depends(get_db)):
+async def ingest_transactions_bulk(transactions: List[TransactionCreate], db: AsyncSession = Depends(get_db)):
     logger.info(f"Received bulk transaction ingestion request with {len(transactions)} records.")
     service = IngestionService(db)
     result = await service.process_batch(transactions)

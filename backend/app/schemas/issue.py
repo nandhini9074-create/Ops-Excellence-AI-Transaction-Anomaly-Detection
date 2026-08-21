@@ -9,6 +9,7 @@ class IssueBase(BaseModel):
     assigned_to: Optional[str] = None
     root_cause: Optional[str] = None
     resolution: Optional[str] = None
+    user_typing: Optional[str] = None
 
 class IssueCreate(BaseModel):
     anomaly_id: Union[UUID, str]
@@ -20,6 +21,8 @@ class IssueCreate(BaseModel):
     anomaly_score: float
     confidence_score: float
     severity: str
+    scheme: Optional[str] = None
+    remarks: Optional[str] = None
     detected_at: datetime
 
 class IssueUpdate(IssueBase):
@@ -36,3 +39,4 @@ class IssueResponse(IssueBase, IssueCreate):
 class IssueStatusUpdate(BaseModel):
     status: str # ACKNOWLEDGED, INVESTIGATING, RESOLVED, FALSE_POSITIVE, CLOSED
     resolution: Optional[str] = None
+    user_typing: Optional[str] = None
