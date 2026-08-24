@@ -7,6 +7,7 @@ export default function Issues() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
+  const [activeResolution, setActiveResolution] = useState<Record<string, 'RESOLVED' | 'FALSE_POSITIVE' | null>>({});
 
   const fetchIssues = async () => {
     setLoading(true);
@@ -75,6 +76,45 @@ export default function Issues() {
     }
 
     if (issue.status === 'OPEN' || issue.status === 'ACKNOWLEDGED') {
+      const resolvingState = activeResolution[issue.id];
+      
+      if (resolvingState) {
+        const isResolve = resolvingState === 'RESOLVED';
+        return (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '220px' }}>
+            <input
+              type="text"
+              placeholder={`Feedback for ${isResolve ? 'Resolution' : 'False Positive'}...`}
+              value={feedbackInputs[issue.id] || ''}
+              onChange={(e) => setFeedbackInputs({ ...feedbackInputs, [issue.id]: e.target.value })}
+              style={{
+                width: '100%', padding: '6px', borderRadius: '4px',
+                border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', fontSize: '0.8rem'
+              }}
+            />
+            <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
+              <button 
+                className="btn" 
+                style={{ padding: '4px 8px', fontSize: '0.75rem', opacity: 0.8 }}
+                onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: null })}
+              >
+                Cancel
+              </button>
+              <button 
+                className="btn" 
+                style={{ padding: '4px 8px', fontSize: '0.75rem', background: isResolve ? 'var(--primary)' : '#ef4444', color: 'white', border: 'none' }}
+                onClick={() => {
+                  handleResolve(issue.id, isResolve);
+                  setActiveResolution({ ...activeResolution, [issue.id]: null });
+                }}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        );
+      }
+
       return (
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
           {issue.status === 'OPEN' && (
@@ -85,6 +125,24 @@ export default function Issues() {
             >
               Acknowledge
             </button>
+          )}
+          {issue.status === 'ACKNOWLEDGED' && (
+            <>
+              <button 
+                className="btn btn-primary" 
+                style={{ padding: '6px 10px', fontSize: '0.8rem' }}
+                onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: 'RESOLVED' })}
+              >
+                Resolve
+              </button>
+              <button 
+                className="btn" 
+                style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#fca5a5', borderColor: 'rgba(252,165,165,0.3)' }}
+                onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: 'FALSE_POSITIVE' })}
+              >
+                False Positive
+              </button>
+            </>
           )}
         </div>
       );

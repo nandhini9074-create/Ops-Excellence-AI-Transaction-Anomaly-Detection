@@ -87,6 +87,7 @@ CREATE TABLE IF NOT EXISTS issues (
     assigned_to VARCHAR(100),
     root_cause TEXT,
     resolution TEXT,
+    user_typing TEXT,
     scheme VARCHAR(50),
     remarks TEXT,
     detected_at TIMESTAMP WITH TIME ZONE NOT NULL,
@@ -100,6 +101,7 @@ CREATE TABLE IF NOT EXISTS feedback (
     feedback_type VARCHAR(50) NOT NULL,
     root_cause TEXT,
     comments TEXT,
+    user_typing TEXT,
     submitted_by VARCHAR(100),
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );

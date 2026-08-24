@@ -39,12 +39,4 @@ def extract_amount_features(df: pd.DataFrame) -> dict:
         "max_amount": float(amounts.max())
     }
 
-def extract_card_features(df: pd.DataFrame) -> dict:
-    if df.empty or 'card_scheme' not in df.columns:
-        return {}
-        
-    counts = df['card_scheme'].value_counts(normalize=True).to_dict()
-    return {
-        "visa_percentage": float(counts.get("VISA", 0.0)),
-        "mastercard_percentage": float(counts.get("MASTERCARD", 0.0))
-    }
+

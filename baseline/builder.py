@@ -8,7 +8,7 @@ from sqlalchemy import select, update, or_
 
 from app.config import settings
 from app.database.models import Outlet, MerchantWhitelist, Baseline
-from baseline.features import extract_volume_features, extract_amount_features, extract_card_features
+from baseline.features import extract_volume_features, extract_amount_features
 from baseline.seasonality import extract_time_and_seasonality_features
 from baseline.thresholds import calculate_dynamic_thresholds
 
@@ -27,14 +27,31 @@ class BaselineBuilder:
                     self.worker_url,
                     params={"outlet_id": outlet_id, "days": days},
                     headers=self.headers,
-                    timeout=30.0
+                    timeout=5.0
                 )
                 resp.raise_for_status()
                 data = resp.json().get("results", [])
-                return pd.DataFrame(data)
+                if data:
+                    return pd.DataFrame(data)
         except Exception as e:
-            logger.error(f"Failed to fetch historical data for outlet {outlet_id}: {e}")
-            return pd.DataFrame()
+            logger.warning(f"Failed to fetch historical data from D1 for outlet {outlet_id}: {e}. Falling back to local DB.")
+            
+        try:
+            from app.database.models import Transaction
+            stmt = select(Transaction).where(Transaction.outlet_id == outlet_id)
+            result = await self.db.execute(stmt)
+            txs = result.scalars().all()
+            if txs:
+                data = [tx.__dict__.copy() for tx in txs]
+                for d in data:
+                    d.pop('_sa_instance_state', None)
+                    if 'transaction_amount' in d and d['transaction_amount'] is not None:
+                        d['transaction_amount'] = float(d['transaction_amount'])
+                return pd.DataFrame(data)
+        except Exception as fallback_e:
+            logger.error(f"Fallback to local DB failed: {fallback_e}")
+            
+        return pd.DataFrame()
 
     async def build_for_all_outlets(self, days: int = settings.BASELINE_HISTORY_DAYS):
         stmt = select(Outlet)
@@ -42,7 +59,7 @@ class BaselineBuilder:
         outlets = result.scalars().all()
         
         for outlet in outlets:
-            outlet_id_str = str(outlet.id)
+            outlet_id_str = outlet.id
             logger.info(f"Building baseline for outlet {outlet.id} ({outlet.name})")
             
             # Fetch data from D1
@@ -73,7 +90,6 @@ class BaselineBuilder:
             # Extract features
             vol_feat = extract_volume_features(df)
             amt_feat = extract_amount_features(df)
-            card_feat = extract_card_features(df)
             time_feat = extract_time_and_seasonality_features(df)
             thresh_feat = calculate_dynamic_thresholds(vol_feat, amt_feat, threshold_multiplier=multiplier)
             thresh_feat['is_whitelisted'] = is_whitelisted
@@ -81,7 +97,6 @@ class BaselineBuilder:
             profile_data = {
                 "volume": vol_feat,
                 "amount": amt_feat,
-                "card": card_feat,
                 "time": time_feat,
                 "thresholds": thresh_feat
             }
