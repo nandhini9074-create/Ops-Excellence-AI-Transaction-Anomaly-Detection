@@ -83,8 +83,8 @@ class BaselineBuilder:
             # If whitelist record exists, update values
             if wl:
                 if wl.threshold_multiplier:
-                    multiplier = float(wl.threshold_multiplier)
-                if str(wl.is_whitelisted).lower() == 'true':
+                    multiplier = wl.threshold_multiplier
+                if wl.is_whitelisted.lower() == 'true':
                     is_whitelisted = True
 
             # Extract features

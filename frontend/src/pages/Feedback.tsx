@@ -143,9 +143,9 @@ export default function Feedback() {
 
         <div style={{ display: 'flex', alignItems: 'center', background: 'var(--card-bg)', border: '1px solid var(--border)', borderRadius: '8px', padding: '8px 16px', width: '320px' }}>
           <Search size={18} style={{ color: 'var(--text-muted)', marginRight: '10px' }} />
-          <input 
-            type="text" 
-            placeholder="Search feedback notes..." 
+          <input
+            type="text"
+            placeholder="Search feedback notes..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
             style={{ background: 'transparent', border: 'none', color: '#f8fafc', outline: 'none', width: '100%', fontSize: '0.9rem' }}
@@ -205,12 +205,12 @@ export default function Feedback() {
                   </span>
                 </td>
                 <td>
-                  <div style={{ fontSize: '0.85rem', color: '#e2e8f0', fontWeight: 500 }}>
+                  <div style={{ fontSize: '0.85rem', color: '#3d0377ff', fontWeight: 500 }}>
                     {log.root_cause || log.comments || 'Feedback submitted by operator during issue triage.'}
                   </div>
                 </td>
                 <td>
-                  <span style={{ fontSize: '0.85rem', color: '#94a3b8' }}>
+                  <span style={{ fontSize: '0.85rem', color: '#03275eff' }}>
                     {log.submitted_by || 'Operations Analyst'}
                   </span>
                 </td>

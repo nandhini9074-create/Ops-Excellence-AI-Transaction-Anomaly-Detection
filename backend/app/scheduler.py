@@ -124,7 +124,7 @@ async def run_anomaly_detection():
 
             # 2. Get recent transactions for normal ML anomaly detection
             tx_repo = TransactionRepository(db)
-            recent_txs = await tx_repo.get_recent_transactions(hours=settings.ANOMALY_INTERVAL_HOURS)
+            recent_txs = await tx_repo.get_recent_transactions(hours=24)
             
             if not recent_txs:
                 logger.info("No recent transactions to analyze.")
@@ -141,7 +141,7 @@ async def run_anomaly_detection():
             outlets = df['outlet_id'].unique()
             
             for outlet_id in outlets:
-                outlet_df = df[df['outlet_id'] == outlet_id]
+                outlet_df = pd.DataFrame(df[df['outlet_id'] == outlet_id])
                 
                 # Fetch baseline
                 stmt_base = select(Baseline).where(Baseline.outlet_id == outlet_id, Baseline.is_active == 'true')
@@ -210,8 +210,8 @@ async def run_anomaly_detection():
 
 def start_scheduler():
     scheduler = AsyncIOScheduler()
-    scheduler.add_job(run_historical_sync, CronTrigger(hour=2, minute=0))
+    scheduler.add_job(run_historical_sync, CronTrigger(day='1,15', hour=3, minute=0))
     scheduler.add_job(run_baseline_builder, CronTrigger(day='1,15', hour=3, minute=0))
-    scheduler.add_job(run_anomaly_detection, IntervalTrigger(hours=settings.ANOMALY_INTERVAL_HOURS))
+    scheduler.add_job(run_anomaly_detection, CronTrigger(hour=6, minute=0))
     scheduler.start()
     logger.info("Scheduler started.")

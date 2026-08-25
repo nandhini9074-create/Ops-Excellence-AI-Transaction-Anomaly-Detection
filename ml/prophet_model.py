@@ -56,11 +56,8 @@ class ProphetDetector:
             yhat_lower = forecast['yhat_lower'].iloc[0]
             yhat_upper = forecast['yhat_upper'].iloc[0]
             
-            actual_vol = len(df_recent) # this is 4-5 hours volume, so we need to project it to daily
-            # Project 4-5 hours to daily based on hourly distribution
-            hours_covered = df_recent['datetime'].dt.hour.nunique()
-            if hours_covered == 0: hours_covered = 1
-            projected_daily_vol = actual_vol * (24 / hours_covered)
+            actual_vol = len(df_recent) # this is 24 hours volume, no projection needed
+            projected_daily_vol = actual_vol
             
             # [ANOMALY DECISION]: Checks if projected volume falls outside expected baseline forecast bounds [yhat_lower, yhat_upper]
             if projected_daily_vol > yhat_upper or projected_daily_vol < yhat_lower:
@@ -74,7 +71,7 @@ class ProphetDetector:
                 
                 res = DetectorResult(
                     detector_name="prophet",
-                    raw_score=float(raw_score),
+                    raw_score=raw_score,
                     anomaly_type=anomaly_type,
                     expected_value=float(expected_vol),
                     actual_value=float(projected_daily_vol),

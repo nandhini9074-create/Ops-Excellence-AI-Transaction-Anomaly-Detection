@@ -5,8 +5,8 @@ def extract_time_and_seasonality_features(df: pd.DataFrame) -> dict:
         return {}
         
     df['datetime'] = pd.to_datetime(df['transaction_timestamp'])
-    df['hour'] = df['datetime'].dt.hour
-    df['dayofweek'] = df['datetime'].dt.dayofweek # 0=Monday, 6=Sunday
+    df['hour'] = df['datetime'].dt.hour  # type: ignore
+    df['dayofweek'] = df['datetime'].dt.dayofweek  # type: ignore
     df['is_weekend'] = df['dayofweek'] >= 5
     
     # Active hours
@@ -21,9 +21,15 @@ def extract_time_and_seasonality_features(df: pd.DataFrame) -> dict:
     # Group by hour to return dictionary
     hourly_dist_clean = {str(k): float(v) for k,v in hourly_dist.items()}
     
+    # Weekly distribution
+    weekly_counts = df['dayofweek'].value_counts()
+    weekly_dist = (weekly_counts / len(df)).to_dict()
+    weekly_percentage = {str(k): float(v) for k,v in weekly_dist.items()}
+    
     return {
         "peak_transaction_hour": peak_hour,
         "hourly_distribution": hourly_dist_clean,
         "weekday_percentage": float(weekday_dist),
-        "weekend_percentage": float(weekend_dist)
+        "weekend_percentage": float(weekend_dist),
+        "weekly_percentage": weekly_percentage
     }

@@ -52,7 +52,7 @@ export default function Issues() {
   };
 
   const getBadgeClass = (severity: string) => {
-    switch(severity) {
+    switch (severity) {
       case 'LOW': return 'badge badge-low';
       case 'MEDIUM': return 'badge badge-medium';
       case 'HIGH': return 'badge badge-high';
@@ -77,7 +77,7 @@ export default function Issues() {
 
     if (issue.status === 'OPEN' || issue.status === 'ACKNOWLEDGED') {
       const resolvingState = activeResolution[issue.id];
-      
+
       if (resolvingState) {
         const isResolve = resolvingState === 'RESOLVED';
         return (
@@ -89,19 +89,19 @@ export default function Issues() {
               onChange={(e) => setFeedbackInputs({ ...feedbackInputs, [issue.id]: e.target.value })}
               style={{
                 width: '100%', padding: '6px', borderRadius: '4px',
-                border: '1px solid var(--border)', background: 'rgba(0,0,0,0.2)', color: 'white', fontSize: '0.8rem'
+                border: '1px solid var(--border)', background: 'rgba(255,255,255,0.9)', color: '#3d0377ff', fontSize: '0.8rem', outline: 'none'
               }}
             />
             <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-              <button 
-                className="btn" 
+              <button
+                className="btn"
                 style={{ padding: '4px 8px', fontSize: '0.75rem', opacity: 0.8 }}
                 onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: null })}
               >
                 Cancel
               </button>
-              <button 
-                className="btn" 
+              <button
+                className="btn"
                 style={{ padding: '4px 8px', fontSize: '0.75rem', background: isResolve ? 'var(--primary)' : '#ef4444', color: 'white', border: 'none' }}
                 onClick={() => {
                   handleResolve(issue.id, isResolve);
@@ -118,8 +118,8 @@ export default function Issues() {
       return (
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
           {issue.status === 'OPEN' && (
-            <button 
-              className="btn" 
+            <button
+              className="btn"
               style={{ padding: '6px 10px', fontSize: '0.8rem' }}
               onClick={() => handleAcknowledge(issue.id)}
             >
@@ -128,16 +128,16 @@ export default function Issues() {
           )}
           {issue.status === 'ACKNOWLEDGED' && (
             <>
-              <button 
-                className="btn btn-primary" 
+              <button
+                className="btn btn-primary"
                 style={{ padding: '6px 10px', fontSize: '0.8rem' }}
                 onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: 'RESOLVED' })}
               >
                 Resolve
               </button>
-              <button 
-                className="btn" 
-                style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#fca5a5', borderColor: 'rgba(252,165,165,0.3)' }}
+              <button
+                className="btn"
+                style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#f8eff9ff', borderColor: 'rgba(252,165,165,0.3)' }}
                 onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: 'FALSE_POSITIVE' })}
               >
                 False Positive
@@ -276,7 +276,7 @@ export default function Issues() {
                 </td>
                 <td>
                   <span style={{
-                    color: issue.status === 'OPEN' ? '#f87171' : issue.status === 'ACKNOWLEDGED' ? '#fbbf24' : '#34d399',
+                    color: issue.status === 'OPEN' ? '#f87171' : issue.status === 'ACKNOWLEDGED' ? '#2427fbff' : '#34d399',
                     fontWeight: 700,
                     fontSize: '0.85rem'
                   }}>

@@ -86,16 +86,16 @@ class NotificationService:
 
     @staticmethod
     async def send_email_alert(anomaly: Dict):
-        if not settings.SMTP_HOST or not settings.SMTP_USERNAME:
+        if not settings.SMTP_HOST:
             return
             
         msg = MIMEMultipart("alternative")
         msg["Subject"] = f"[{anomaly.get('severity')}] Anomaly Detected: {anomaly.get('merchant_name')} - {anomaly.get('outlet_name')}"
-        msg["From"] = settings.SMTP_USERNAME
-        msg["To"] = "ops-team@example.com" # Should be configurable
+        msg["From"] = settings.SMTP_USERNAME or "no-reply@opsexcellence.ai"
+        msg["To"] = "nan041211ni@gmail.com"
         
         text = f"""
-        Anomaly Detected
+        🚨 Anomaly Detected 🚨
         
         Merchant: {anomaly.get('merchant_name')}
         Outlet: {anomaly.get('outlet_name')}
@@ -103,7 +103,7 @@ class NotificationService:
         Severity: {anomaly.get('severity')}
         Score: {anomaly.get('anomaly_score')}
         
-        Explanation:
+        📌 Reason / Issue Details:
         {anomaly.get('explanation')}
         """
         
