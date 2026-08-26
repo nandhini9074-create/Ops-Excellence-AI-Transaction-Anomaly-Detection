@@ -10,23 +10,23 @@ router = APIRouter()
 @router.get("/dashboard", response_model=Dict[str, Any])
 async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
     # 1. Total Active Issues
-    total_issues = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED')"))).scalar()
+    total_issues = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED', 'IGNORED')"))).scalar()
     
     # 2. High/Critical Severity Active Issues
-    high_severity = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED') AND severity IN ('HIGH', 'CRITICAL')"))).scalar()
+    high_severity = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status NOT IN ('RESOLVED', 'FALSE_POSITIVE', 'CLOSED', 'IGNORED') AND severity IN ('HIGH', 'CRITICAL')"))).scalar()
     
     # 3. False Positives (all time)
-    false_positives = (await db.execute(text("SELECT COUNT(*) FROM issues WHERE status = 'FALSE_POSITIVE'"))).scalar()
+    false_positives = (await db.execute(text("SELECT COALESCE(SUM(occurrence_count), 0) FROM issues WHERE status = 'FALSE_POSITIVE'"))).scalar()
     
     # 4. Real trend data from DB for the last 7 days
     query = text("""
         WITH anchor AS (
-            SELECT COALESCE(MAX(date_trunc('day', detected_at)), CURRENT_DATE) AS end_date FROM issues
+            SELECT COALESCE(MAX(date_trunc('day', created_at)), CURRENT_DATE) AS end_date FROM issues
         )
         SELECT 
             to_char(d.day, 'Dy') as name,
-            COALESCE(COUNT(i.id), 0)::int as anomalies,
-            COALESCE(COUNT(i.id) FILTER (WHERE i.status NOT IN ('FALSE_POSITIVE')), 0)::int as issues
+            COALESCE(SUM(i.occurrence_count), 0)::int as anomalies,
+            COALESCE(SUM(i.occurrence_count) FILTER (WHERE i.status NOT IN ('FALSE_POSITIVE', 'IGNORED')), 0)::int as issues
         FROM 
             anchor,
             generate_series(
@@ -34,7 +34,7 @@ async def get_dashboard_stats(db: AsyncSession = Depends(get_db)):
                 anchor.end_date, 
                 INTERVAL '1 day'
             ) AS d(day)
-        LEFT JOIN issues i ON date_trunc('day', i.detected_at) = d.day
+        LEFT JOIN issues i ON date_trunc('day', i.created_at) = d.day
         GROUP BY d.day
         ORDER BY d.day ASC;
     """)

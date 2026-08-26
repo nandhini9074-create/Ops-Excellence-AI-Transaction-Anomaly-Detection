@@ -1,6 +1,6 @@
 from typing import List, Optional
 import uuid
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, update
 from sqlalchemy.orm import class_mapper
@@ -45,7 +45,12 @@ class IssueRepository:
             severity=issue_data.severity,
             scheme=issue_data.scheme,
             remarks=issue_data.remarks,
-            detected_at=issue_data.detected_at.replace(tzinfo=timezone.utc),
+            occurrence_count=issue_data.occurrence_count or 1,
+            last_detected_at=issue_data.last_detected_at or issue_data.detected_at.replace(tzinfo=timezone.utc),
+            last_run_id=issue_data.last_run_id,
+            volume_class=issue_data.volume_class,
+            alert_metadata=issue_data.alert_metadata,
+            status="NEW",
             created_at=datetime.now(timezone.utc)
         )
         
@@ -67,4 +72,52 @@ class IssueRepository:
         updated_issue = result.scalar_one_or_none()
         await self.db.commit()
         
-        return row2dict(updated_issue) if updated_issue else None
+        if updated_issue:
+            return row2dict(updated_issue)
+        return await self.get_by_id(issue_id)
+
+    async def upsert(self, issue_data: IssueCreate) -> Optional[dict]:
+        # Find existing issue for this outlet + anomaly_type
+        stmt = select(Issue).where(
+            Issue.outlet_id == str(issue_data.outlet_id),
+            Issue.anomaly_type == issue_data.anomaly_type
+        ).order_by(Issue.created_at.desc())
+        
+        result = await self.db.execute(stmt)
+        existing = result.scalars().first()
+        
+        if not existing:
+            # CASE A: No existing issue -> INSERT
+            return await self.create(issue_data)
+            
+        status = existing.status
+        now = datetime.now(timezone.utc)
+        
+        update_data = IssueUpdate(
+            occurrence_count=existing.occurrence_count + 1,
+            last_detected_at=issue_data.detected_at,
+            confidence_score=issue_data.confidence_score,
+            last_run_id=issue_data.last_run_id,
+            severity=issue_data.severity,
+            volume_class=issue_data.volume_class,
+            alert_metadata=issue_data.alert_metadata,
+            remarks=issue_data.remarks
+        )
+        
+        if status in ['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS']:
+            # CASE B: Already active -> UPDATE metadata
+            return await self.update(existing.id, update_data)
+            
+        if status in ['IGNORED', 'FALSE_POSITIVE']:
+            # CASE C: Was dismissed -> check 30 days rule
+            if existing.resolved_at and existing.resolved_at > (now - timedelta(days=30)):
+                return await self.update(existing.id, update_data)
+            else:
+                return await self.create(issue_data)
+                
+        if status == 'RESOLVED':
+            # CASE D: Was fixed -> Always INSERT new
+            return await self.create(issue_data)
+            
+        # Fallback
+        return await self.create(issue_data)

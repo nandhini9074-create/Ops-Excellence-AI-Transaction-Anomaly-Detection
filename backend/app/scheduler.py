@@ -10,9 +10,11 @@ from app.services.historical_sync import HistoricalSyncService
 from baseline.builder import BaselineBuilder
 from ml.detector import AnomalyDetectionEngine
 from app.repositories.transaction_repo import TransactionRepository
-from app.services.notification_service import NotificationService
-from app.schemas.issue import IssueCreate
 from app.repositories.issue_repo import IssueRepository
+from app.repositories.alert_repo import AlertRepository
+from app.schemas.issue import IssueCreate
+from app.schemas.alert import AlertCreate
+from app.services.notification_service import NotificationService
 import json
 from ml.remarks_builder import build_human_remarks
 from app.database.models import ProcessingRun, Issue, MerchantWhitelist, Baseline
@@ -62,7 +64,7 @@ async def run_anomaly_detection():
         await db.commit()
         
         try:
-            # 1. Sprint 81: Dormancy Check (20+ days inactive)
+            # 1. Sprint 81: Dormancy Check (30+ days inactive)
             dormancy_query = text("""
                 SELECT o.id as outlet_id, o.merchant_id, m.name as merchant_name, o.name as outlet_name,
                        MAX(t.transaction_timestamp) as last_tx_date,
@@ -71,12 +73,13 @@ async def run_anomaly_detection():
                 JOIN merchants m ON o.merchant_id = m.id
                 JOIN transactions t ON t.outlet_id = o.id
                 GROUP BY o.id, o.merchant_id, m.name, o.name
-                HAVING EXTRACT(DAY FROM (NOW() - MAX(t.transaction_timestamp))) >= 20
+                HAVING EXTRACT(DAY FROM (NOW() - MAX(t.transaction_timestamp))) >= 30
             """)
             result = await db.execute(dormancy_query)
             dormant_outlets = result.mappings().all()
             
             issue_repo = IssueRepository(db)
+            alert_repo = AlertRepository(db)
             anomalies_found = 0
             
             for d_out in dormant_outlets:
@@ -90,37 +93,66 @@ async def run_anomaly_detection():
                     logger.info(f"Dormancy suppressed for {d_out['outlet_name']} — skipping.")
                     continue
 
-                # Fix 1: Deduplication with 7-day cooldown
-                stmt_dup = select(Issue).where(
-                    Issue.outlet_id == str(d_out['outlet_id']),
-                    Issue.anomaly_type == 'DORMANCY'
-                )
-                dup_res = await db.execute(stmt_dup)
-                issues = dup_res.scalars().all()
-                existing = any(
-                    i.status in ['OPEN', 'ACKNOWLEDGED'] or 
-                    (i.status in ['RESOLVED', 'FALSE_POSITIVE'] and i.resolved_at and i.resolved_at.replace(tzinfo=timezone.utc) > datetime.now(timezone.utc) - timedelta(days=7)) 
-                    for i in issues
+                # Step 1: Create raw Alert record
+                days = int(d_out.get('days_inactive', 30))
+                alert_in = AlertCreate(
+                    run_id=pr.id,
+                    outlet_id=str(d_out['outlet_id']),
+                    merchant_id=str(d_out['merchant_id']),
+                    merchant_name=d_out['merchant_name'],
+                    outlet_name=d_out['outlet_name'],
+                    anomaly_type="DORMANCY",
+                    anomaly_score=1.0,
+                    confidence_score=1.0,
+                    severity="MEDIUM",
+                    description=f"This outlet has had no transactions for {days} days. A runner test or merchant call is recommended.",
+                    volume_class=None,
+                    scheme=None,
+                    alert_metadata={"days_inactive": days},
+                    detected_at=datetime.now(timezone.utc)
                 )
                 
-                if not existing:
-                    days = int(d_out['days_inactive'])
-                    issue_in = IssueCreate(
-                        anomaly_id=str(uuid.uuid4()),
-                        merchant_id=str(d_out['merchant_id']),
-                        merchant_name=d_out['merchant_name'],
-                        outlet_id=str(d_out['outlet_id']),
-                        outlet_name=d_out['outlet_name'],
-                        anomaly_type="DORMANCY",
-                        anomaly_score=1.0,
-                        confidence_score=1.0,
-                        severity="MEDIUM",
-                        remarks=f"This outlet has had no transactions for {days} days. A runner test or merchant call is recommended.",
-                        detected_at=datetime.now(timezone.utc)
-                    )
-                    await issue_repo.create(issue_in)
+                # Make sure alert_repo exists here, wait it's initialized on line 128 currently
+                # We need to initialize it before the dormancy loop
+                # I'll move alert_repo init above
+                alert_record = await alert_repo.create(alert_in)
+                
+                # Step 2: Upsert into issues
+                issue_in = IssueCreate(
+                    anomaly_id=alert_record['id'],
+                    merchant_id=str(d_out['merchant_id']),
+                    merchant_name=d_out['merchant_name'],
+                    outlet_id=str(d_out['outlet_id']),
+                    outlet_name=d_out['outlet_name'],
+                    anomaly_type="DORMANCY",
+                    anomaly_score=1.0,
+                    confidence_score=1.0,
+                    severity="MEDIUM",
+                    scheme=None,
+                    remarks=f"This outlet has had no transactions for {days} days. A runner test or merchant call is recommended.",
+                    detected_at=datetime.now(timezone.utc),
+                    last_run_id=pr.id,
+                    alert_metadata={"days_inactive": days}
+                )
+                issue_record = await issue_repo.upsert(issue_in)
+                
+                # Step 3: Link alert to issue
+                if issue_record:
+                    await alert_repo.link_to_issue(alert_record['id'], issue_record['id'])
+                else:
+                    logger.warning(f"Failed to upsert issue for alert {alert_record['id']}")
+                
+                # Step 4: Notify if NEW issue
+                if issue_record and issue_record.get('status') == 'NEW' and issue_record.get('occurrence_count', 1) == 1:
                     anomalies_found += 1
                     logger.info(f"Created DORMANCY alert for {d_out['outlet_name']} ({days} days inactive)")
+                    await NotificationService.broadcast_anomaly({
+                        'merchant_name': d_out['merchant_name'],
+                        'outlet_name': d_out['outlet_name'],
+                        'anomaly_type': 'DORMANCY',
+                        'severity': 'MEDIUM',
+                        'details': {"days_inactive": days}
+                    })
 
             # 2. Get recent transactions for normal ML anomaly detection
             tx_repo = TransactionRepository(db)
@@ -160,22 +192,30 @@ async def run_anomaly_detection():
                 if anomaly_results:
                     row = outlet_df.iloc[0]
                     for anomaly_result in anomaly_results:
-                        # Sprint 81: Alert Deduplication
-                        stmt_dup_ml = select(Issue).where(
-                            Issue.outlet_id == str(row['outlet_id']),
-                            Issue.anomaly_type == anomaly_result['anomaly_type'],
-                            Issue.status.in_(['OPEN', 'ACKNOWLEDGED'])
-                        )
-                        existing = (await db.execute(stmt_dup_ml)).scalar_one_or_none()
-                        
-                        if existing:
-                            logger.info(f"Suppressed duplicate alert for {row['outlet_name']} ({anomaly_result['anomaly_type']})")
-                            continue
-                            
                         anomalies_found += 1
                         
+                        # Step 1: Create raw Alert record
+                        alert_in = AlertCreate(
+                            run_id=pr.id,
+                            outlet_id=str(row['outlet_id']),
+                            merchant_id=str(row['merchant_id']),
+                            merchant_name=row['merchant_name'],
+                            outlet_name=row['outlet_name'],
+                            anomaly_type=anomaly_result['anomaly_type'],
+                            anomaly_score=anomaly_result['anomaly_score'],
+                            confidence_score=anomaly_result['confidence_score'],
+                            severity=anomaly_result['severity'],
+                            description=build_human_remarks(anomaly_result),
+                            volume_class=None,
+                            scheme=str(row.get('card_scheme', '')) if 'card_scheme' in row else None,
+                            alert_metadata=anomaly_result.get('details', {}),
+                            detected_at=datetime.now(timezone.utc)
+                        )
+                        alert_record = await alert_repo.create(alert_in)
+                        
+                        # Step 2: Upsert into issues (smart dedup)
                         issue_in = IssueCreate(
-                            anomaly_id=str(uuid.uuid4()),
+                            anomaly_id=alert_record['id'],
                             merchant_id=str(row['merchant_id']),
                             merchant_name=row['merchant_name'],
                             outlet_id=str(row['outlet_id']),
@@ -186,15 +226,24 @@ async def run_anomaly_detection():
                             severity=anomaly_result['severity'],
                             scheme=str(row.get('card_scheme', '')) if 'card_scheme' in row else None,
                             remarks=build_human_remarks(anomaly_result),
-                            detected_at=datetime.now(timezone.utc)
+                            detected_at=datetime.now(timezone.utc),
+                            last_run_id=pr.id,
+                            alert_metadata=anomaly_result.get('details', {})
                         )
                         
-                        await issue_repo.create(issue_in)
+                        issue_record = await issue_repo.upsert(issue_in)
                         
-                        # Notify
-                        anomaly_result['merchant_name'] = row['merchant_name']
-                        anomaly_result['outlet_name'] = row['outlet_name']
-                        await NotificationService.broadcast_anomaly(anomaly_result)
+                        # Step 3: Link alert to issue
+                        if issue_record:
+                            await alert_repo.link_to_issue(alert_record['id'], issue_record['id'])
+                        else:
+                            logger.warning(f"Failed to upsert issue for alert {alert_record['id']}")
+                        
+                        # Step 4: Notify if NEW issue
+                        if issue_record and issue_record.get('status') == 'NEW' and issue_record.get('occurrence_count', 1) == 1:
+                            anomaly_result['merchant_name'] = row['merchant_name']
+                            anomaly_result['outlet_name'] = row['outlet_name']
+                            await NotificationService.broadcast_anomaly(anomaly_result)
             
             pr.status = 'COMPLETED'
             pr.completed_at = datetime.now(timezone.utc)

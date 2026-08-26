@@ -139,3 +139,29 @@ CREATE TABLE IF NOT EXISTS merchant_whitelists (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+
+ALTER TABLE issues
+    ADD COLUMN IF NOT EXISTS occurrence_count INTEGER DEFAULT 1,
+    ADD COLUMN IF NOT EXISTS last_detected_at TIMESTAMPTZ,
+    ADD COLUMN IF NOT EXISTS last_run_id VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS volume_class VARCHAR(50);
+
+CREATE TABLE IF NOT EXISTS alerts (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    issue_id UUID REFERENCES issues(id) ON DELETE SET NULL,
+    run_id UUID REFERENCES processing_runs(id),
+    outlet_id UUID NOT NULL REFERENCES outlets(id),
+    merchant_id UUID NOT NULL REFERENCES merchants(id),
+    merchant_name VARCHAR(255) NOT NULL,
+    outlet_name VARCHAR(255) NOT NULL,
+    anomaly_type VARCHAR(100) NOT NULL,
+    anomaly_score FLOAT NOT NULL,
+    confidence_score FLOAT NOT NULL,
+    severity VARCHAR(50) NOT NULL,
+    description TEXT,
+    volume_class VARCHAR(50),
+    scheme VARCHAR(50),
+    alert_metadata JSONB,
+    detected_at TIMESTAMPTZ NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+);

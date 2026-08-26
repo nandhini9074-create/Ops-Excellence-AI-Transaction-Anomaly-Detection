@@ -95,17 +95,44 @@ class Issue(Base):
     anomaly_score: Mapped[float] = mapped_column(Float, nullable=False)
     confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
     severity: Mapped[str] = mapped_column(String(50), nullable=False)
-    status: Mapped[str] = mapped_column(String(50), default='OPEN')
+    status: Mapped[str] = mapped_column(String(50), default='NEW')
     assigned_to: Mapped[Optional[str]] = mapped_column(String(100))
     root_cause: Mapped[Optional[str]] = mapped_column(Text)
     resolution: Mapped[Optional[str]] = mapped_column(Text)
     user_typing: Mapped[Optional[str]] = mapped_column(Text)
     scheme: Mapped[Optional[str]] = mapped_column(String(50))
     remarks: Mapped[Optional[str]] = mapped_column(Text)
-    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    
+    # New lifecycle fields
+    occurrence_count: Mapped[int] = mapped_column(Integer, default=1)
+    last_detected_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
+    last_run_id: Mapped[Optional[str]] = mapped_column(String(100))
+    volume_class: Mapped[Optional[str]] = mapped_column(String(50))
+    
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     resolved_at: Mapped[Optional[datetime]] = mapped_column(DateTime(timezone=True))
 
+
+class Alert(Base):
+    __tablename__ = "alerts"
+
+    id: Mapped[str] = mapped_column(UUID(as_uuid=False), primary_key=True, default=generate_uuid)
+    issue_id: Mapped[Optional[str]] = mapped_column(ForeignKey("issues.id", ondelete="SET NULL"), nullable=True)
+    run_id: Mapped[str] = mapped_column(ForeignKey("processing_runs.id"), nullable=False)
+    outlet_id: Mapped[str] = mapped_column(ForeignKey("outlets.id"), nullable=False)
+    merchant_id: Mapped[str] = mapped_column(ForeignKey("merchants.id"), nullable=False)
+    merchant_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    outlet_name: Mapped[str] = mapped_column(String(255), nullable=False)
+    anomaly_type: Mapped[str] = mapped_column(String(100), nullable=False)
+    anomaly_score: Mapped[float] = mapped_column(Float, nullable=False)
+    confidence_score: Mapped[float] = mapped_column(Float, nullable=False)
+    severity: Mapped[str] = mapped_column(String(50), nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(Text)
+    volume_class: Mapped[Optional[str]] = mapped_column(String(50))
+    scheme: Mapped[Optional[str]] = mapped_column(String(50))
+    alert_metadata: Mapped[Optional[Dict[str, Any]]] = mapped_column(JSONB)
+    detected_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 class Feedback(Base):
     __tablename__ = "feedback"

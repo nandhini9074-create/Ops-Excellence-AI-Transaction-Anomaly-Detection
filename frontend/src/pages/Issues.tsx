@@ -7,7 +7,7 @@ export default function Issues() {
   const [loading, setLoading] = useState(true);
   const [activeFilter, setActiveFilter] = useState('ALL');
   const [feedbackInputs, setFeedbackInputs] = useState<Record<string, string>>({});
-  const [activeResolution, setActiveResolution] = useState<Record<string, 'RESOLVED' | 'FALSE_POSITIVE' | null>>({});
+  const [activeResolution, setActiveResolution] = useState<Record<string, 'RESOLVED' | 'FALSE_POSITIVE' | 'IGNORED' | null>>({});
 
   const fetchIssues = async () => {
     setLoading(true);
@@ -34,10 +34,14 @@ export default function Issues() {
     }
   };
 
-  const handleResolve = async (id: string, isTrueAlert: boolean) => {
-    const status = isTrueAlert ? 'RESOLVED' : 'FALSE_POSITIVE';
+  const handleResolve = async (id: string, resolutionType: 'RESOLVED' | 'FALSE_POSITIVE' | 'IGNORED') => {
+    const status = resolutionType;
     const customFeedback = feedbackInputs[id]?.trim();
-    const resolution = isTrueAlert ? 'Confirmed anomaly and escalated' : 'Marked as false positive after review';
+    let resolution = '';
+    if (resolutionType === 'RESOLVED') resolution = 'Confirmed anomaly and escalated';
+    else if (resolutionType === 'FALSE_POSITIVE') resolution = 'Marked as false positive after review';
+    else if (resolutionType === 'IGNORED') resolution = 'Ignored by operator';
+    
     try {
       await resolveIssue(id, status, resolution, customFeedback);
       setFeedbackInputs(prev => {
@@ -75,16 +79,19 @@ export default function Issues() {
       );
     }
 
-    if (issue.status === 'OPEN' || issue.status === 'ACKNOWLEDGED') {
+    if (['NEW', 'OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(issue.status)) {
       const resolvingState = activeResolution[issue.id];
 
       if (resolvingState) {
         const isResolve = resolvingState === 'RESOLVED';
+        const isIgnored = resolvingState === 'IGNORED';
+        const placeholderText = isResolve ? 'Resolution' : isIgnored ? 'Ignore Reason' : 'False Positive';
+        
         return (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', minWidth: '220px' }}>
             <input
               type="text"
-              placeholder={`Feedback for ${isResolve ? 'Resolution' : 'False Positive'}...`}
+              placeholder={`Feedback for ${placeholderText}...`}
               value={feedbackInputs[issue.id] || ''}
               onChange={(e) => setFeedbackInputs({ ...feedbackInputs, [issue.id]: e.target.value })}
               style={{
@@ -104,7 +111,7 @@ export default function Issues() {
                 className="btn"
                 style={{ padding: '4px 8px', fontSize: '0.75rem', background: isResolve ? 'var(--primary)' : '#ef4444', color: 'white', border: 'none' }}
                 onClick={() => {
-                  handleResolve(issue.id, isResolve);
+                  handleResolve(issue.id, resolvingState);
                   setActiveResolution({ ...activeResolution, [issue.id]: null });
                 }}
               >
@@ -116,8 +123,8 @@ export default function Issues() {
       }
 
       return (
-        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end' }}>
-          {issue.status === 'OPEN' && (
+        <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+          {(issue.status === 'OPEN' || issue.status === 'NEW') && (
             <button
               className="btn"
               style={{ padding: '6px 10px', fontSize: '0.8rem' }}
@@ -126,7 +133,7 @@ export default function Issues() {
               Acknowledge
             </button>
           )}
-          {issue.status === 'ACKNOWLEDGED' && (
+          {(issue.status === 'ACKNOWLEDGED' || issue.status === 'IN_PROGRESS') && (
             <>
               <button
                 className="btn btn-primary"
@@ -141,6 +148,13 @@ export default function Issues() {
                 onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: 'FALSE_POSITIVE' })}
               >
                 False Positive
+              </button>
+              <button
+                className="btn"
+                style={{ padding: '6px 10px', fontSize: '0.8rem', color: '#a1a1aa', borderColor: 'rgba(161,161,170,0.3)' }}
+                onClick={() => setActiveResolution({ ...activeResolution, [issue.id]: 'IGNORED' })}
+              >
+                Ignore
               </button>
             </>
           )}
@@ -160,6 +174,14 @@ export default function Issues() {
       return (
         <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
           <XCircle size={14} style={{ color: 'var(--danger)' }} /> False Positive
+        </span>
+      );
+    }
+    
+    if (issue.status === 'IGNORED') {
+      return (
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)', display: 'flex', alignItems: 'center', gap: '4px' }}>
+          <XCircle size={14} style={{ color: 'var(--text-muted)' }} /> Ignored
         </span>
       );
     }
@@ -192,7 +214,7 @@ export default function Issues() {
 
       {/* Filter Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
-        {['ALL', 'OPEN', 'ACKNOWLEDGED', 'RESOLVED', 'FALSE_POSITIVE'].map(filter => {
+        {['ALL', 'NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'FALSE_POSITIVE', 'IGNORED'].map(filter => {
           const count = getTabCount(filter);
           return (
             <button
@@ -257,6 +279,11 @@ export default function Issues() {
                 <td style={{ verticalAlign: 'middle' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
                     <span style={{ color: 'var(--text-muted)' }}>{issue.anomaly_type}</span>
+                    {issue.occurrence_count > 1 && (
+                      <span style={{ background: 'rgba(255,255,255,0.1)', padding: '2px 6px', borderRadius: '4px', fontSize: '0.7rem', fontWeight: 600 }}>
+                        ×{issue.occurrence_count}
+                      </span>
+                    )}
                   </div>
                   {issue.remarks && (
                     <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '4px', maxWidth: '250px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }} title={issue.remarks}>
@@ -276,7 +303,7 @@ export default function Issues() {
                 </td>
                 <td>
                   <span style={{
-                    color: issue.status === 'OPEN' ? '#f87171' : issue.status === 'ACKNOWLEDGED' ? '#2427fbff' : '#34d399',
+                    color: (issue.status === 'OPEN' || issue.status === 'NEW') ? '#f87171' : (issue.status === 'ACKNOWLEDGED' || issue.status === 'IN_PROGRESS') ? '#2427fbff' : '#34d399',
                     fontWeight: 700,
                     fontSize: '0.85rem'
                   }}>
@@ -284,7 +311,7 @@ export default function Issues() {
                   </span>
                 </td>
                 <td style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>
-                  {new Date(issue.detected_at).toLocaleString()}
+                  {new Date(issue.last_detected_at || issue.created_at).toLocaleString()}
                 </td>
                 <td>
                   <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
