@@ -49,7 +49,6 @@ class IssueRepository:
             last_detected_at=issue_data.last_detected_at or issue_data.detected_at.replace(tzinfo=timezone.utc),
             last_run_id=issue_data.last_run_id,
             volume_class=issue_data.volume_class,
-            alert_metadata=issue_data.alert_metadata,
             status="NEW",
             created_at=datetime.now(timezone.utc)
         )
@@ -64,7 +63,7 @@ class IssueRepository:
         if not update_data:
             return await self.get_by_id(issue_id)
             
-        if "status" in update_data and update_data["status"] in ["RESOLVED", "FALSE_POSITIVE", "CLOSED"]:
+        if "status" in update_data and update_data["status"] in ["RESOLVED", "FALSE_POSITIVE", "CLOSED", "IGNORED"]:
             update_data["resolved_at"] = datetime.now(timezone.utc)
             
         stmt = update(Issue).where(Issue.id == issue_id).values(**update_data).returning(Issue)
@@ -100,7 +99,6 @@ class IssueRepository:
             last_run_id=issue_data.last_run_id,
             severity=issue_data.severity,
             volume_class=issue_data.volume_class,
-            alert_metadata=issue_data.alert_metadata,
             remarks=issue_data.remarks
         )
         

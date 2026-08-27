@@ -11,7 +11,7 @@ from ml.scoring import fuse_scores
 logger = logging.getLogger(__name__)
 
 class AnomalyDetectionEngine:
-    def __init__(self, baseline_profile: dict, historical_df: pd.DataFrame = None):
+    def __init__(self, baseline_profile: dict, historical_df: Optional[pd.DataFrame] = None):
         self.baseline = baseline_profile
         
         # Initialize detectors

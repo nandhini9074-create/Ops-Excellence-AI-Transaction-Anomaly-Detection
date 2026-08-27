@@ -60,7 +60,7 @@ class IsolationForestDetector:
                 
                 res = DetectorResult(
                     detector_name="isolation_forest",
-                    raw_score=float(raw_score),
+                    raw_score=raw_score,
                     anomaly_type="PATTERN_BREAK",
                     expected_value=mean_amt,
                     actual_value=amt,

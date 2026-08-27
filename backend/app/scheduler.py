@@ -68,12 +68,12 @@ async def run_anomaly_detection():
             dormancy_query = text("""
                 SELECT o.id as outlet_id, o.merchant_id, m.name as merchant_name, o.name as outlet_name,
                        MAX(t.transaction_timestamp) as last_tx_date,
-                       EXTRACT(DAY FROM (NOW() - MAX(t.transaction_timestamp))) as days_inactive
+                       EXTRACT(DAY FROM (NOW() - COALESCE(MAX(t.transaction_timestamp), o.created_at))) as days_inactive
                 FROM outlets o
                 JOIN merchants m ON o.merchant_id = m.id
-                JOIN transactions t ON t.outlet_id = o.id
-                GROUP BY o.id, o.merchant_id, m.name, o.name
-                HAVING EXTRACT(DAY FROM (NOW() - MAX(t.transaction_timestamp))) >= 30
+                LEFT JOIN transactions t ON t.outlet_id = o.id
+                GROUP BY o.id, o.merchant_id, m.name, o.name, o.created_at
+                HAVING EXTRACT(DAY FROM (NOW() - COALESCE(MAX(t.transaction_timestamp), o.created_at))) >= 30
             """)
             result = await db.execute(dormancy_query)
             dormant_outlets = result.mappings().all()
@@ -146,13 +146,7 @@ async def run_anomaly_detection():
                 if issue_record and issue_record.get('status') == 'NEW' and issue_record.get('occurrence_count', 1) == 1:
                     anomalies_found += 1
                     logger.info(f"Created DORMANCY alert for {d_out['outlet_name']} ({days} days inactive)")
-                    await NotificationService.broadcast_anomaly({
-                        'merchant_name': d_out['merchant_name'],
-                        'outlet_name': d_out['outlet_name'],
-                        'anomaly_type': 'DORMANCY',
-                        'severity': 'MEDIUM',
-                        'details': {"days_inactive": days}
-                    })
+                    await NotificationService.broadcast_anomaly(issue_record)
 
             # 2. Get recent transactions for normal ML anomaly detection
             tx_repo = TransactionRepository(db)
@@ -186,7 +180,20 @@ async def run_anomaly_detection():
                 if isinstance(profile_data, str):
                     profile_data = json.loads(profile_data)
                     
-                engine = AnomalyDetectionEngine(profile_data)
+                # Calculate volume class based on historical daily average
+                avg_tx = profile_data.get('volume', {}).get('average_transactions_per_day', 0)
+                if avg_tx >= 100:
+                    vol_class = 'HIGH'
+                elif avg_tx >= 20:
+                    vol_class = 'MEDIUM'
+                else:
+                    vol_class = 'LOW'
+                    
+                # Fetch history for Prophet and Change Point
+                history_records = await tx_repo.get_historical_transactions(outlet_id, days=90)
+                history_df = pd.DataFrame(history_records) if history_records else None
+                    
+                engine = AnomalyDetectionEngine(profile_data, historical_df=history_df)
                 anomaly_results = engine.analyze(outlet_df)
                 
                 if anomaly_results:
@@ -206,7 +213,7 @@ async def run_anomaly_detection():
                             confidence_score=anomaly_result['confidence_score'],
                             severity=anomaly_result['severity'],
                             description=build_human_remarks(anomaly_result),
-                            volume_class=None,
+                            volume_class=vol_class,
                             scheme=str(row.get('card_scheme', '')) if 'card_scheme' in row else None,
                             alert_metadata=anomaly_result.get('details', {}),
                             detected_at=datetime.now(timezone.utc)
@@ -228,6 +235,7 @@ async def run_anomaly_detection():
                             remarks=build_human_remarks(anomaly_result),
                             detected_at=datetime.now(timezone.utc),
                             last_run_id=pr.id,
+                            volume_class=vol_class,
                             alert_metadata=anomaly_result.get('details', {})
                         )
                         
@@ -241,9 +249,7 @@ async def run_anomaly_detection():
                         
                         # Step 4: Notify if NEW issue
                         if issue_record and issue_record.get('status') == 'NEW' and issue_record.get('occurrence_count', 1) == 1:
-                            anomaly_result['merchant_name'] = row['merchant_name']
-                            anomaly_result['outlet_name'] = row['outlet_name']
-                            await NotificationService.broadcast_anomaly(anomaly_result)
+                            await NotificationService.broadcast_anomaly(issue_record)
             
             pr.status = 'COMPLETED'
             pr.completed_at = datetime.now(timezone.utc)

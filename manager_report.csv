@@ -1,0 +1,6 @@
+outlet_name,anomaly_type,severity,status,confidence_score,remarks,detected_at
+Test Scenarios Outlet,PATTERN_BREAK,MEDIUM,NEW,55.0%,A sudden structural change was detected in this outlet's transaction behaviour. The normal operating pattern has shifted significantly. Confidence: 55%.,2026-08-27T10:57:41.083462Z
+Test Scenarios Outlet,AMOUNT_SPIKE,LOW,NEW,55.0%,"Unusually high transaction amount detected (95,000.00 vs expected 662.97). Could indicate fraud, data entry error, or a misconfigured terminal. Confidence: 55%.",2026-08-27T10:57:41.073418Z
+Test Scenarios Outlet,PATTERN_BREAK,MEDIUM,NEW,55.0%,A sudden structural change was detected in this outlet's transaction behaviour. The normal operating pattern has shifted significantly. Confidence: 55%.,2026-08-27T10:57:37.021033Z
+Test Scenarios Outlet,PATTERN_BREAK,CRITICAL,NEW,55.0%,A sudden structural change was detected in this outlet's transaction behaviour. The normal operating pattern has shifted significantly. Confidence: 55%.,2026-08-27T10:57:33.065721Z
+Dormant Outlet,DORMANCY,MEDIUM,NEW,100.0%,This outlet has had no transactions for 35 days. A runner test or merchant call is recommended.,2026-08-27T10:57:28.659617Z

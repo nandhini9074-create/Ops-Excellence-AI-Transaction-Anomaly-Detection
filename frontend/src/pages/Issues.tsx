@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getIssues, acknowledgeIssue, resolveIssue } from '../services/api';
+import { getIssues, acknowledgeIssue, resolveIssue, markInProgress } from '../services/api';
 import { RefreshCw, CheckCircle, XCircle, AlertTriangle } from 'lucide-react';
 
 export default function Issues() {
@@ -31,6 +31,15 @@ export default function Issues() {
       fetchIssues();
     } catch (error) {
       console.error("Failed to acknowledge issue", error);
+    }
+  };
+
+  const handleInProgress = async (id: string) => {
+    try {
+      await markInProgress(id);
+      fetchIssues();
+    } catch (error) {
+      console.error("Failed to mark in progress", error);
     }
   };
 
@@ -79,7 +88,7 @@ export default function Issues() {
       );
     }
 
-    if (['NEW', 'OPEN', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(issue.status)) {
+    if (['NEW', 'ACKNOWLEDGED', 'IN_PROGRESS'].includes(issue.status)) {
       const resolvingState = activeResolution[issue.id];
 
       if (resolvingState) {
@@ -124,7 +133,7 @@ export default function Issues() {
 
       return (
         <div style={{ display: 'flex', gap: '6px', justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-          {(issue.status === 'OPEN' || issue.status === 'NEW') && (
+          {issue.status === 'NEW' && (
             <button
               className="btn"
               style={{ padding: '6px 10px', fontSize: '0.8rem' }}
@@ -133,6 +142,17 @@ export default function Issues() {
               Acknowledge
             </button>
           )}
+          {/*
+          {issue.status === 'ACKNOWLEDGED' && (
+            <button
+              className="btn"
+              style={{ padding: '6px 10px', fontSize: '0.8rem', background: 'var(--accent)', color: 'white' }}
+              onClick={() => handleInProgress(issue.id)}
+            >
+              Investigate
+            </button>
+          )}
+          */}
           {(issue.status === 'ACKNOWLEDGED' || issue.status === 'IN_PROGRESS') && (
             <>
               <button
@@ -214,7 +234,8 @@ export default function Issues() {
 
       {/* Filter Tabs */}
       <div style={{ display: 'flex', gap: '8px', marginBottom: '24px', borderBottom: '1px solid var(--border)', paddingBottom: '12px', flexWrap: 'wrap' }}>
-        {['ALL', 'NEW', 'ACKNOWLEDGED', 'IN_PROGRESS', 'RESOLVED', 'FALSE_POSITIVE', 'IGNORED'].map(filter => {
+        {/* 'IN_PROGRESS' commented out for later use */}
+        {['ALL', 'NEW', 'ACKNOWLEDGED', 'RESOLVED', 'FALSE_POSITIVE', 'IGNORED'].map(filter => {
           const count = getTabCount(filter);
           return (
             <button
@@ -303,7 +324,7 @@ export default function Issues() {
                 </td>
                 <td>
                   <span style={{
-                    color: (issue.status === 'OPEN' || issue.status === 'NEW') ? '#f87171' : (issue.status === 'ACKNOWLEDGED' || issue.status === 'IN_PROGRESS') ? '#2427fbff' : '#34d399',
+                    color: (issue.status === 'NEW') ? '#f87171' : (issue.status === 'ACKNOWLEDGED' || issue.status === 'IN_PROGRESS') ? '#2427fbff' : '#34d399',
                     fontWeight: 700,
                     fontSize: '0.85rem'
                   }}>

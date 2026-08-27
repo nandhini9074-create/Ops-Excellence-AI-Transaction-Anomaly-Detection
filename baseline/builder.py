@@ -60,13 +60,13 @@ class BaselineBuilder:
         
         for outlet in outlets:
             outlet_id_str = outlet.id
-            logger.info(f"Building baseline for outlet {outlet.id} ({outlet.name})")
+            print(f"Building baseline for outlet {outlet.id} ({outlet.name})")
             
             # Fetch data from D1
             df = await self.fetch_historical_data(outlet_id_str, days)
             
             if df.empty:
-                logger.warning(f"No historical data for outlet {outlet.id}. Skipping baseline.")
+                print(f"No historical data for outlet {outlet.id}. Skipping baseline.")
                 continue
                 
             # Check if merchant is in whitelist

@@ -28,6 +28,14 @@ async def acknowledge_issue(id: str, db: AsyncSession = Depends(get_db)):
         raise HTTPException(status_code=404, detail="Issue not found")
     return issue
 
+@router.post("/{id}/in_progress", response_model=IssueResponse)
+async def in_progress_issue(id: str, db: AsyncSession = Depends(get_db)):
+    repo = IssueRepository(db)
+    issue = await repo.update(id, IssueUpdate(status="IN_PROGRESS"))
+    if not issue:
+        raise HTTPException(status_code=404, detail="Issue not found")
+    return issue
+
 @router.post("/{id}/resolve", response_model=IssueResponse)
 async def resolve_issue(id: str, payload: IssueStatusUpdate, db: AsyncSession = Depends(get_db)):
     repo = IssueRepository(db)
@@ -36,7 +44,12 @@ async def resolve_issue(id: str, payload: IssueStatusUpdate, db: AsyncSession = 
         raise HTTPException(status_code=404, detail="Issue not found")
 
     # Automatically record human feedback for model calibration
-    feedback_type = "TRUE_ALERT" if payload.status == "RESOLVED" else "FALSE_POSITIVE"
+    if payload.status == "RESOLVED":
+        feedback_type = "TRUE_ALERT"
+    elif payload.status == "FALSE_POSITIVE":
+        feedback_type = "FALSE_POSITIVE"
+    else:
+        feedback_type = "IGNORED"
     fb_service = FeedbackService(db)
     await fb_service.process_feedback(FeedbackCreate(
         issue_id=id,

@@ -16,9 +16,37 @@ class TransactionRepository:
         self.db = db
 
     async def get_recent_transactions(self, hours: int = 4) -> List[dict]:
-        """Fetch transactions from the last N hours."""
-        cutoff_time = datetime.now(timezone.utc) - timedelta(hours=hours)
+        """Fetch transactions from the last N hours relative to the latest transaction in the DB."""
+        from sqlalchemy import func
+        max_ts_stmt = select(func.max(Transaction.transaction_timestamp))
+        max_ts_result = await self.db.execute(max_ts_stmt)
+        max_ts = max_ts_result.scalar_one_or_none()
+        
+        if not max_ts:
+            return []
+            
+        cutoff_time = max_ts - timedelta(hours=hours)
         stmt = select(Transaction).where(Transaction.transaction_timestamp >= cutoff_time).order_by(Transaction.transaction_timestamp.asc())
+        result = await self.db.execute(stmt)
+        records = result.scalars().all()
+        return [row2dict(r) for r in records]
+
+    async def get_historical_transactions(self, outlet_id: str, days: int = 90) -> List[dict]:
+        from sqlalchemy import func
+        max_ts_stmt = select(func.max(Transaction.transaction_timestamp))
+        max_ts_result = await self.db.execute(max_ts_stmt)
+        max_ts = max_ts_result.scalar_one_or_none()
+        
+        if not max_ts:
+            max_ts = datetime.now(timezone.utc)
+            
+        cutoff_time = max_ts - timedelta(days=days)
+        stmt = select(Transaction).where(
+            Transaction.outlet_id == outlet_id,
+            Transaction.transaction_timestamp >= cutoff_time,
+            Transaction.transaction_timestamp < max_ts - timedelta(hours=24) # Exclude recent 24h
+        ).order_by(Transaction.transaction_timestamp.asc())
+        
         result = await self.db.execute(stmt)
         records = result.scalars().all()
         return [row2dict(r) for r in records]

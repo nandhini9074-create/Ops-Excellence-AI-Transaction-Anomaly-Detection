@@ -4,7 +4,7 @@ def extract_time_and_seasonality_features(df: pd.DataFrame) -> dict:
     if df.empty:
         return {}
         
-    df['datetime'] = pd.to_datetime(df['transaction_timestamp'])
+    df['datetime'] = pd.to_datetime(df['transaction_timestamp'], format='mixed')
     df['hour'] = df['datetime'].dt.hour  # type: ignore
     df['dayofweek'] = df['datetime'].dt.dayofweek  # type: ignore
     df['is_weekend'] = df['dayofweek'] >= 5

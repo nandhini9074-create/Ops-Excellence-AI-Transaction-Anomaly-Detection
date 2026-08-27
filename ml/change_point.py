@@ -2,14 +2,14 @@ import pandas as pd
 import numpy as np
 import logging
 import ruptures as rpt
-from typing import List, Any
+from typing import List, Any, Optional
 
 from ml.zscore import DetectorResult
 
 logger = logging.getLogger(__name__)
 
 class ChangePointDetector:
-    def __init__(self, baseline_profile: dict, history_df: pd.DataFrame = None):
+    def __init__(self, baseline_profile: dict, history_df: Optional[pd.DataFrame] = None):
         """
         Change point detection needs historical context to identify if the current
         behavior represents a regime shift.
@@ -26,7 +26,7 @@ class ChangePointDetector:
             # We combine historical and recent data to find if a shift occurred recently
             combined = pd.concat([self.history_df, df_recent])
             combined['datetime'] = pd.to_datetime(combined['transaction_timestamp'])
-            combined['date'] = combined['datetime'].dt.date
+            combined['date'] = combined['datetime'].dt.date  # type: ignore
             
             # Aggregate daily
             daily_stats = combined.groupby('date').agg(

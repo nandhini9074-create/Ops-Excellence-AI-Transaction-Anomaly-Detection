@@ -1,6 +1,6 @@
 import pandas as pd
 import logging
-from typing import List, Any
+from typing import List, Any, Optional
 from app.config import settings
 from ml.zscore import DetectorResult
 
@@ -14,7 +14,7 @@ except ImportError:
     PROPHET_AVAILABLE = False
 
 class ProphetDetector:
-    def __init__(self, baseline_profile: dict, history_df: pd.DataFrame = None):
+    def __init__(self, baseline_profile: dict, history_df: Optional[pd.DataFrame] = None):
         """
         Prophet needs historical data to fit the model.
         We pass history_df when initializing the detector for a run.
@@ -33,7 +33,7 @@ class ProphetDetector:
             # For simplicity, we just train on history and predict the current day's expected volume
             
             self.history_df['datetime'] = pd.to_datetime(self.history_df['transaction_timestamp'])
-            self.history_df['date'] = self.history_df['datetime'].dt.date
+            self.history_df['date'] = self.history_df['datetime'].dt.normalize()
             daily_volumes = self.history_df.groupby('date').size().reset_index()
             daily_volumes.columns = ['ds', 'y']
             
@@ -41,20 +41,32 @@ class ProphetDetector:
                 # Not enough history for Prophet
                 return results
 
-            model = Prophet(yearly_seasonality=False, weekly_seasonality=True, daily_seasonality=False)
-            model.fit(daily_volumes)
-            
             # Predict for the current date of the recent transactions
             df_recent['datetime'] = pd.to_datetime(df_recent['transaction_timestamp'])
-            current_date = df_recent['datetime'].dt.date.iloc[0]
+            current_date = pd.to_datetime(df_recent['transaction_timestamp'].iloc[0]).date()
             
-            # [BASELINE COMPARISON]: Fits Prophet time-series model on historical baseline & predicts expected range
-            future = pd.DataFrame({'ds': [pd.to_datetime(current_date)]})
-            forecast = model.predict(future)
-            
-            expected_vol = forecast['yhat'].iloc[0]
-            yhat_lower = forecast['yhat_lower'].iloc[0]
-            yhat_upper = forecast['yhat_upper'].iloc[0]
+            try:
+                if not PROPHET_AVAILABLE:
+                    raise Exception("Prophet not available")
+                model = Prophet(yearly_seasonality=False, weekly_seasonality=True, daily_seasonality=False)
+                model.fit(daily_volumes)
+                # [BASELINE COMPARISON]: Fits Prophet time-series model on historical baseline & predicts expected range
+                future = pd.DataFrame({'ds': [pd.to_datetime(current_date)]})
+                forecast = model.predict(future)
+                expected_vol = forecast['yhat'].iloc[0]
+                yhat_lower = forecast['yhat_lower'].iloc[0]
+                yhat_upper = forecast['yhat_upper'].iloc[0]
+            except Exception as e:
+                logger.warning(f"Prophet failed, using statistical fallback: {e}")
+                # Fallback: simple mean and standard deviation
+                mean_vol = daily_volumes['y'].mean()
+                std_vol = daily_volumes['y'].std()
+                if pd.isna(std_vol) or std_vol == 0:
+                    std_vol = max(1.0, mean_vol * 0.1)
+                
+                expected_vol = mean_vol
+                yhat_lower = max(0, mean_vol - (3 * std_vol))
+                yhat_upper = mean_vol + (3 * std_vol)
             
             actual_vol = len(df_recent) # this is 24 hours volume, no projection needed
             projected_daily_vol = actual_vol

@@ -24,6 +24,11 @@ export const acknowledgeIssue = async (issueId: string) => {
   return response.data;
 };
 
+export const markInProgress = async (issueId: string) => {
+  const response = await apiClient.post(`/issues/${issueId}/in_progress`);
+  return response.data;
+};
+
 export const resolveIssue = async (issueId: string, status: string, resolution?: string, user_typing?: string) => {
   const response = await apiClient.post(`/issues/${issueId}/resolve`, {
     status,

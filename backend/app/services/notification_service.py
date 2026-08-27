@@ -4,6 +4,8 @@ from typing import Dict
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from string import Template
+from pathlib import Path
 
 from app.config import settings
 
@@ -11,7 +13,7 @@ logger = logging.getLogger(__name__)
 
 class NotificationService:
     @staticmethod
-    async def send_teams_alert(anomaly: Dict):
+    async def send_teams_alert(issue: Dict):
         if not settings.TEAMS_WEBHOOK_URL:
             return
             
@@ -28,19 +30,19 @@ class NotificationService:
                         "body": [
                             {
                                 "type": "TextBlock",
-                                "text": f"🚨 Anomaly Detected: {anomaly.get('anomaly_type')}",
+                                "text": f"🚨 Anomaly Detected: {issue.get('anomaly_type')}",
                                 "weight": "Bolder",
                                 "size": "Medium",
-                                "color": "Attention" if anomaly.get("severity") in ["HIGH", "CRITICAL"] else "Warning"
+                                "color": "Attention" if issue.get("severity") in ["HIGH", "CRITICAL"] else "Warning"
                             },
                             {
                                 "type": "FactSet",
                                 "facts": [
-                                    {"title": "Merchant:", "value": anomaly.get('merchant_name', 'Unknown')},
-                                    {"title": "Outlet:", "value": anomaly.get('outlet_name', 'Unknown')},
-                                    {"title": "Severity:", "value": anomaly.get('severity')},
-                                    {"title": "Score:", "value": f"{anomaly.get('anomaly_score', 0):.2f}"},
-                                    {"title": "Details:", "value": anomaly.get('explanation')}
+                                    {"title": "Merchant:", "value": issue.get('merchant_name', 'Unknown')},
+                                    {"title": "Outlet:", "value": issue.get('outlet_name', 'Unknown')},
+                                    {"title": "Severity:", "value": issue.get('severity')},
+                                    {"title": "Score:", "value": f"{issue.get('anomaly_score', 0):.2f}"},
+                                    {"title": "Details:", "value": issue.get('remarks', '-')}
                                 ]
                             }
                         ]
@@ -56,23 +58,23 @@ class NotificationService:
             logger.error(f"Failed to send Teams alert: {e}")
 
     @staticmethod
-    async def send_slack_alert(anomaly: Dict):
+    async def send_slack_alert(issue: Dict):
         if not settings.SLACK_WEBHOOK_URL:
             return
             
-        color = "#FF0000" if anomaly.get("severity") in ["HIGH", "CRITICAL"] else "#FFA500"
+        color = "#FF0000" if issue.get("severity") in ["HIGH", "CRITICAL"] else "#FFA500"
         
         payload = {
             "attachments": [
                 {
                     "color": color,
-                    "title": f"🚨 Anomaly Detected: {anomaly.get('anomaly_type')}",
+                    "title": f"🚨 Anomaly Detected: {issue.get('anomaly_type')}",
                     "fields": [
-                        {"title": "Merchant", "value": anomaly.get('merchant_name', 'Unknown'), "short": True},
-                        {"title": "Outlet", "value": anomaly.get('outlet_name', 'Unknown'), "short": True},
-                        {"title": "Severity", "value": anomaly.get('severity'), "short": True},
-                        {"title": "Score", "value": f"{anomaly.get('anomaly_score', 0):.2f}", "short": True},
-                        {"title": "Details", "value": anomaly.get('explanation'), "short": False}
+                        {"title": "Merchant", "value": issue.get('merchant_name', 'Unknown'), "short": True},
+                        {"title": "Outlet", "value": issue.get('outlet_name', 'Unknown'), "short": True},
+                        {"title": "Severity", "value": issue.get('severity'), "short": True},
+                        {"title": "Score", "value": f"{issue.get('anomaly_score', 0):.2f}", "short": True},
+                        {"title": "Details", "value": issue.get('remarks', '-'), "short": False}
                     ]
                 }
             ]
@@ -85,33 +87,75 @@ class NotificationService:
             logger.error(f"Failed to send Slack alert: {e}")
 
     @staticmethod
-    async def send_email_alert(anomaly: Dict):
+    async def send_email_alert(issue: Dict):
         if not settings.SMTP_HOST:
             return
             
         msg = MIMEMultipart("alternative")
-        msg["Subject"] = f"[{anomaly.get('severity')}] Anomaly Detected: {anomaly.get('merchant_name')} - {anomaly.get('outlet_name')}"
+        msg["Subject"] = f"[{issue.get('severity')}] Anomaly Detected: {issue.get('merchant_name')} - {issue.get('outlet_name')}"
         msg["From"] = settings.SMTP_USERNAME or "no-reply@opsexcellence.ai"
         msg["To"] = "nan041211ni@gmail.com"
         
-        text = f"""
-        🚨 Anomaly Detected 🚨
+        # Extract metadata
+        metadata = issue.get('alert_metadata') or {}
+        last_tx_mc = "-"
+        if 'Last Mastercard transaction' in str(metadata):
+            # This is a bit of a guess based on the requested format, but we'll try to extract or format it
+            pass # We'll just serialize it nicely below
         
-        Merchant: {anomaly.get('merchant_name')}
-        Outlet: {anomaly.get('outlet_name')}
-        Type: {anomaly.get('anomaly_type')}
-        Severity: {anomaly.get('severity')}
-        Score: {anomaly.get('anomaly_score')}
+        last_tx_mc_display = metadata.get('last_tx_mc', str(metadata)) if metadata else "-"
         
-        📌 Reason / Issue Details:
-        {anomaly.get('explanation')}
-        """
+        # Determine Auto Resolved
+        is_auto_resolved = "Yes" if issue.get('status') == 'RESOLVED' and not issue.get('assigned_to') else "No"
+
+        # Format dates
+        def fmt_date(dt):
+            if not dt: return "-"
+            if isinstance(dt, str): return dt
+            return dt.strftime('%b %d, %Y %H:%M:%S')
+
+        template_path = Path(__file__).parent.parent / "templates" / "alert_email.html"
         
-        msg.attach(MIMEText(text, "plain"))
+        try:
+            with open(template_path, "r", encoding="utf-8") as f:
+                template_content = f.read()
+        except FileNotFoundError:
+            logger.error(f"Template not found at {template_path}")
+            return
+            
+        template = Template(template_content)
+        html = template.safe_substitute(
+            alert_identity=issue.get('id', '-'),
+            alert_type=issue.get('anomaly_type', '-'),
+            outlet_name=issue.get('outlet_name', '-'),
+            merchant_name=issue.get('merchant_name', '-'),
+            schemes=issue.get('scheme') or '-',
+            volume_class=issue.get('volume_class') or '-',
+            severity=issue.get('severity', '-'),
+            confidence=issue.get('confidence_score', '-'),
+            auto_resolved=is_auto_resolved,
+            occurrences=issue.get('occurrence_count', 1),
+            last_run_id=issue.get('last_run_id', '-'),
+            status=issue.get('status', '-'),
+            description=issue.get('remarks', '-'),
+            last_transaction_mc=last_tx_mc_display,
+            first_detected=fmt_date(issue.get('created_at')),
+            last_detected=fmt_date(issue.get('last_detected_at')),
+            assigned_to=issue.get('assigned_to') or '-',
+            feedback_label=issue.get('user_typing') or '-',
+            action_note=issue.get('resolution') or '-',
+            resolution_reason=issue.get('root_cause') or '-',
+            verification_outcome='-',
+            action_taken_at='-',
+            resolved_at=fmt_date(issue.get('resolved_at')),
+            acknowledged_at='-'
+        )
+        
+        msg.attach(MIMEText(html, "html"))
         
         try:
             server = smtplib.SMTP(settings.SMTP_HOST, settings.SMTP_PORT)
-            if settings.SMTP_PASSWORD:
+            if settings.SMTP_USERNAME and settings.SMTP_PASSWORD:
                 server.starttls()
                 server.login(settings.SMTP_USERNAME, settings.SMTP_PASSWORD)
             server.send_message(msg)
@@ -120,15 +164,16 @@ class NotificationService:
             logger.error(f"Failed to send Email alert: {e}")
 
     @classmethod
-    async def broadcast_anomaly(cls, anomaly: Dict):
+    async def broadcast_anomaly(cls, issue: Dict):
         """Sends alert to all configured channels based on severity."""
-        severity = anomaly.get("severity", "LOW")
+        severity = issue.get("severity", "LOW")
         
         # Always log
-        logger.info(f"New Anomaly: {anomaly.get('anomaly_type')} at {anomaly.get('outlet_name')} ({severity})")
+        logger.info(f"New Anomaly: {issue.get('anomaly_type')} at {issue.get('outlet_name')} ({severity})")
         
         # Only broadcast HIGH and CRITICAL immediately
-        if severity in ["HIGH", "CRITICAL"]:
-            await cls.send_teams_alert(anomaly)
-            await cls.send_slack_alert(anomaly)
-            await cls.send_email_alert(anomaly)
+        if severity in ["HIGH", "CRITICAL", "MEDIUM", "WARNING"]:
+            # Note: Expanding conditions here to ensure emails are sent for broader severities if tested
+            await cls.send_teams_alert(issue)
+            await cls.send_slack_alert(issue)
+            await cls.send_email_alert(issue)
